@@ -1,8 +1,14 @@
 package MUA;
+import com.sun.org.apache.xpath.internal.operations.Bool;
+
 import java.util.*;
 import java.lang.*;
+import java.util.ArrayList;
+import java.util.List;
+
 
 public class Mua {
+    private static final String myVersion="Version 0.0.1\n";
     private static HashMap<String,String> nameSpace= new HashMap<>();
     private static Scanner input=new Scanner(System.in);
     //public static HashMap tempNameSpace=new HashMap();
@@ -14,44 +20,266 @@ public class Mua {
          "           "+      "|  \\/  |_   _  __ _ \n" +
          "           "+      "| |\\/| | | | |/ _\\ |\n" +
          "           "+      "| |  | | |_| | (_| |\n" +
-         "Welcome to "+      "|_|  |_|\\__/_|\\__/\\|" +" Version 0.0.1\n");
+         "Welcome to "+      "|_|  |_|\\__/_|\\__/\\| " +myVersion);
+        System.out.println("----------------------------------------------");
+        System.out.println("   visit http://zhengcz.cn to get more help");
         System.out.println("----------------------------------------------");
         System.out.print(">>>");
 
         String command="";
 
         //处理读入的命令直到读取到单行的exit为止
-        while(!command.equals("exit")) {
-            command = input.nextLine();//以行读入，隔断处理
-//            String[] allCommands=command.split("\\s+");
-//            for(int i=0;i<allCommands.length;i++)
-//                if(allCommands[i])
+        while(!((command = input.nextLine()).equals("exit"))) {
+            if(!isBracketsPatch(command)){
+                printSyntaxError("'[' and ']' didn't patch!");
+                System.out.print(">>>");
+                continue;
+            }
+
+            //处理注释
+            if(command.startsWith("//")){
+                System.out.print(">>>");
+                continue;
+            }
+
+            if(command.contains(" //")){
+                command=command.substring(0,command.indexOf(" //"));
+                if(command.equals("")){
+                    System.out.print(">>>");
+                    continue;
+                }
+            }
+
+            command=preformatBracket(command);
+            String[] allCommands=command.split("\\s+");
+            allCommands=bracketToString(allCommands);
+            executeCommands(allCommands);
+            System.out.print(">>>");
         }
 
         System.out.println("GoodBye!");
     }
 
+    //TODO:需要处理当输入的命令中没有可执行命令的情况，包括部分代码不能执行的情况
+    //TODO：考虑isname和thing是否需要输出东西
+    //Version2:提示每个命令的执行结果
+
+    //命令调用执行函数，其中的[]已经被转换,返回执行成功与否
+    public static boolean executeCommands(String[] allCommands){
+//        for(int i=0;i<allCommands.length;i++)
+//            System.out.println(allCommands[i]);
+//
+        int finalAvailable=allCommands.length-1;
+        for(int i=finalAvailable;i>=0;i--){
+            if(!testLegal(allCommands[i])||allCommands[i].startsWith(":")){
+
+                //处理 ':'命令
+                if(allCommands[i].startsWith(":")){
+                        if(!testLegal(allCommands[i].substring(1))){
+                            printSyntaxError(""+allCommands[i].substring(1)+" is not a legal name");
+                            return false;
+                        }
+
+                        else{
+                            String temptemp=cmdThing("\""+allCommands[i].substring(1));
+                            if(temptemp.equals(""))
+                                return false;
+                            else
+                                allCommands[i]=temptemp;
+                        }
+                    continue;
+                }
+
+                //处理除':'之外的命令
+                switch(allCommands[i]){
+                    case "make":
+                        if(i+2>finalAvailable){
+                            printSyntaxError("make needs 2 arguments but you give "+(finalAvailable-i));
+                            return false;
+                        }
+                        else{
+                            String temptemp=cmdMake(allCommands[i+1],allCommands[i+2]);
+                            if(temptemp.equals(""))
+                                return false;
+                            else {
+                                allCommands[i]=temptemp;
+                                finalAvailable-=2;
+                            }
+                        }
+                        break;
+                    case  "thing":
+                        if(i+1>finalAvailable){
+                            printSyntaxError("thing needs 1 arguments but you give 0");
+                            return false;
+                        }
+                        else{
+                            String temptemp=cmdThing(allCommands[i+1]);
+                            if(temptemp.equals(""))
+                                return false;
+                            else{
+                                allCommands[i]=temptemp;
+                                finalAvailable--;
+                            }
+                        }
+                        break;
+                    case "erase":
+                        if(i+1>finalAvailable){
+                            printSyntaxError("erase needs 1 arguments but you give 0");
+                            return false;
+                        }
+                        else{
+                            if(!isValidName(allCommands[i+1]))
+                                return false;
+                            else{
+                                boolean temptemp=cmdErase(allCommands[i+1]);
+                                allCommands[i]=Boolean.toString(temptemp);
+                                finalAvailable--;
+                            }
+                        }
+                        break;
+                    case "isname":
+                        if(i+1>finalAvailable){
+                            printSyntaxError("isname needs 1 arguments but you give 0");
+                            return false;
+                        }
+                        else{
+                            if(!isValidName(allCommands[i+1]))
+                                return false;
+                            else{
+                                boolean temptemp=cmdIsName(allCommands[i+1]);
+                                allCommands[i]=Boolean.toString(temptemp);
+                                finalAvailable--;
+                            }
+                        }
+                        break;
+                    case "print":
+                        if(i+1>finalAvailable){
+                            System.out.println(i);
+                            System.out.println(finalAvailable);
+                            printSyntaxError("print needs 1 arguments but you give 0");
+                            return false;
+                        }
+                        else if(cmdPrint(allCommands[i+1]))
+                            finalAvailable-=2;
+                        else
+                            return false;
+                        break;
+                    case "read":
+                        allCommands[i]=cmdRead();
+                        break;
+                    case "readlist":
+                        allCommands[i]=cmdReadList();
+                        break;
+                    case "add":
+                    case "sub":
+                    case "mul":
+                    case "div":
+                    case "mod":
+                        if(i+2>finalAvailable){
+                            printSyntaxError(allCommands[i]+" needs 2 arguments but you give "+(finalAvailable-i));
+                            return false;
+                        }
+                        if(!isDigits(allCommands[i+1])||!isDigits(allCommands[i+2])){
+                            printSyntaxError(allCommands[i+1]+" and "+allCommands[i+2]+" are not all digits");
+                            return false;
+                        }
+                        else{
+                            if(clearZero(allCommands[i+2]).equals("0")&&(allCommands[i].equals("mod")||allCommands[i].equals("div"))){
+                                printPrompt(" the second number can't be 0");
+                                return false;
+                            }
+                            else{
+                                allCommands[i]=cmdCompute(allCommands[i+1],allCommands[i+2],allCommands[i]);
+                                finalAvailable-=2;
+                            }
+                        }
+                        break;
+                    case "eq":
+                    case "gt":
+                    case "lt":
+                        if(i+2>finalAvailable){
+                            printSyntaxError(allCommands[i]+" needs 2 arguments but you give "+(finalAvailable-i));
+                            return false;
+                        }
+                        if(isDigits(allCommands[i+1])&&isDigits(allCommands[i+2])){
+                            allCommands[i]=Boolean.toString(cmdCompare(allCommands[i+1],allCommands[i+2],allCommands[i]));
+                            finalAvailable-=2;
+                        }
+                        if(allCommands[i+1].startsWith("\"")&&allCommands[i+2].startsWith("\"")){
+                            allCommands[i]=Boolean.toString(cmdCompare(allCommands[i+1],allCommands[i+2],allCommands[i]));
+                            finalAvailable-=2;
+                        }
+                        else{
+                            printSyntaxError(allCommands[i+1]+" and "+allCommands[i+2]+" are not all digits or words");
+                            return false;
+                        }
+                        break;
+                    case "and":
+                    case  "or":
+                        if(i+2>finalAvailable){
+                            printSyntaxError(allCommands[i]+" needs 2 arguments but you give "+(finalAvailable-i));
+                            return false;
+                        }
+                        if(!allCommands[i+1].toLowerCase().equals("false")&&!allCommands[i+1].toLowerCase().equals("true")){
+                            printSyntaxError(allCommands[i+1]+" is not boolean");
+                            return false;
+                        }
+                        if(!allCommands[i+2].toLowerCase().equals("false")&&!allCommands[i+2].toLowerCase().equals("true")){
+                            printSyntaxError(allCommands[i+2]+" is not boolean");
+                            return false;
+                        }
+                        else{
+                            allCommands[i]=Boolean.toString(cmdAndOr(Boolean.parseBoolean(allCommands[i+1]),Boolean.parseBoolean(allCommands[i+2]),allCommands[i]));
+                            finalAvailable-=2;
+                        }
+                        break;
+                    case "not":
+                        if(i+1>finalAvailable){
+                            printSyntaxError(allCommands[i]+" needs 1 arguments but you give 0");
+                            return false;
+                        }
+                        if(!allCommands[i+1].toLowerCase().equals("false")&&!allCommands[i+1].toLowerCase().equals("true")){
+                            printSyntaxError(allCommands[i+1]+" is not boolean");
+                            return false;
+                        }
+                        else{
+                            allCommands[i]=Boolean.toString(cmdNot(Boolean.parseBoolean(allCommands[i+1])));
+                            finalAvailable--;
+                        }
+                        break;
+                    default:
+                        finalAvailable--;
+                        break;
+                }
+            }
+            else
+                continue;
+        }
+
+        return true;
+    }
     //函数得到的参数中不会有未处理的命令，字的字面量带有"，若非字面量则不应该有"
     //返回值为""时表示有错误发生
     public static String cmdMake(String tempWord,String tempValue){
         //检查tempWord的合法性
         if(!tempWord.startsWith("\"")) {
-            printSyntaxErrot("the word literal must starts with '\"'");
+            printSyntaxError("the word literal must starts with '\"'");
             return "";
         }
+
         if(tempWord.startsWith("\":")){
-            printSyntaxErrot("the name can't start with ':'");
+            printSyntaxError("the name can't start with ':'");
             return "";
         }
 
         String temp=tempWord.substring(1);
-        if(temp.equals("")) {
-            printSyntaxErrot("the name can't be empty");
+        if(temp.equals("\"")) {
+            printSyntaxError("the name can't be empty");
             return "";
         }
 
         if(!testLegal(temp)){
-            printSyntaxErrot("can't used reserved word as name");
+            printSyntaxError("can't used reserved word as name");
             return "";
         }
 
@@ -63,16 +291,16 @@ public class Mua {
             if(isBracketsPatch(tempValue))
                 nameSpace.put(tempWord,tempValue);
             else{
-                printSyntaxErrot("the '[' and ']' didn't patch");
+                printSyntaxError("the '[' and ']' didn't patch");
                 return "";
             }
-        else if(tempValue.equals("false")||tempValue.equals("true"))
+        else if(tempValue.toLowerCase().equals("false")||tempValue.toLowerCase().equals("true"))
             nameSpace.put(tempWord,tempValue);
         else
             if(isDigits(tempValue))
                 nameSpace.put(tempWord,clearZero(tempValue));
             else{
-                printSyntaxErrot(tempValue+"is not a valid value");
+                printSyntaxError(tempValue+"is invalid");
                 return "";
             }
 
@@ -81,8 +309,20 @@ public class Mua {
 
     //当使用':'调用thing时，传送的tempWord应当加上"
     public static String cmdThing(String tempWord){
-        if(!nameSpace.containsKey(tempWord)) {
-            printPrompt("didn't have key named " + tempWord.substring(1));
+        if(!tempWord.startsWith("\"")){
+            printSyntaxError(tempWord+" is not a word");
+            return "";
+        }
+        else if(tempWord.equals("\"")){
+            printPrompt("the name can't be empty");
+            return "";
+        }
+        else if(!testLegal(tempWord.substring(1))){
+            printSyntaxError("word name can't be a reserved word");
+            return "";
+        }
+        else if(!nameSpace.containsKey(tempWord)) {
+            printPrompt("didn't have word named " + tempWord.substring(1));
             return "";
         }
         else
@@ -99,17 +339,31 @@ public class Mua {
         }
     }
     public static boolean cmdIsName(String tempWord){
-        return nameSpace.containsKey(tempWord);
+        if(tempWord.equals("\"")){
+            printPrompt("the name can't be empty");
+            return false;
+        }
+        else
+            return nameSpace.containsKey(tempWord);
     }
 
-    public static void cmdPrint(String tempWord){
-        if(nameSpace.containsKey(tempWord))
-            System.out.println(nameSpace.get(tempWord));
-        else
-            printPrompt("didn't have key named "+tempWord.substring(1));
+    public static boolean cmdPrint(String tempWord){
+        if(tempWord.startsWith("\""))
+            System.out.println(tempWord+"\"");
+        else if(tempWord.equals("true")||tempWord.equals("false"))
+            System.out.println(tempWord);
+        else if(tempWord.startsWith("["))
+            System.out.println(tempWord);
+        else if(isDigits(tempWord))
+            System.out.println(clearZero(tempWord));
+        else{
+            printSyntaxError(tempWord+" is invalid");
+            return false;
+        }
+        return true;
     }
     public static String cmdRead() {
-        String temp=input.next();
+        String temp=input.nextLine();
         char[] tempArray=temp.toCharArray();
         while(true){
             if(tempArray[0]=='\"')
@@ -118,15 +372,17 @@ public class Mua {
                 if(isDigits(temp))
                     return clearZero(temp);
                 else
-                    printPrompt(temp+" is invalid, input again:");
-            temp=input.next();
+                    printPrompt(temp+" is invalid, input again");
+            temp=input.nextLine();
             tempArray=temp.toCharArray();
         }
 
     }
-//    public static String cmdReadList(){
-//        //ToDo：该部分与main中的一同处理，返回的值应该由[]包含，其中除了四个基本类型外没有要转换的命令了
-//    }
+    public static String cmdReadList(){
+        Scanner input=new Scanner(System.in);
+        String temp=input.nextLine();
+        return "[ "+temp+" ]";
+    }
 
     //Note:传入的两个值应该是准确的可以运算的数字，且若第一个为thing应该去给它赋予新的值
     public static String cmdCompute(String str1,String str2,String command){
@@ -178,7 +434,7 @@ public class Mua {
         return !bool;
     }
 
-    private static void printSyntaxErrot(String prompt){
+    private static void printSyntaxError(String prompt){
         System.out.println("Systax Error: " +prompt);
     }
     private static void printWarning(String prompt){
@@ -233,7 +489,7 @@ public class Mua {
             while(tempLeft.startsWith("0")&&tempLeft.length()!=1)
                 tempLeft=tempLeft.substring(1);
             while(tempRight.endsWith("0")&&tempRight.length()!=1)
-                tempRight=tempLeft.substring(0,tempRight.length()-1);
+                tempRight=tempRight.substring(0,tempRight.length()-1);
             temp=tempLeft+"."+tempRight;
         }
         if(temp.endsWith(".0"))
@@ -319,23 +575,149 @@ public class Mua {
 
     //判断list的括号是否匹配
     private static boolean isBracketsPatch(String temp){
-        String tempStr=temp.replaceAll(" ", "");
-        char[] tempArray=temp.toCharArray();
-        int i;
-        int j=tempArray.length-1;
-        for(i=0;i<tempArray.length;i++){
-            if(tempArray[i]=='['){
-                while(j>=0){
-                    if(tempArray[j]==']')
-                        break;
-                    else
-                        j--;
-                }
-                if(i>j)
-                    return false;
+        //temp=preformatBracket(temp);
+        int countLeft=0;
+        int countRight=0;
+        String[] tempArray=temp.split("\\s+");
+        for(int i=0;i<tempArray.length;i++)
+            if(tempArray[i].equals("["))
+                countLeft++;
+            else if(tempArray[i].equals("]"))
+                countRight++;
+            else
+                continue;
+
+        return countLeft==countRight;
+    }
+
+    private static String preformatBracket(String temp){
+        String[] tempArray=temp.split("\\s+");
+        List<String> tempList=Arrays.asList(tempArray);
+        tempList=new ArrayList<String>(tempList);
+
+        for(int i=0;i<tempList.size();i++){
+            String tempString=tempList.get(i);
+            if(tempString.startsWith("[")&&tempString.length()!=1){
+                tempList.set(i,tempString.substring(1));
+                tempList.add(i,"[");
             }
+            else if(tempString.endsWith("]")&&tempString.length()!=1&&!tempString.startsWith("\"")){
+                tempList.set(i,tempString.substring(0,tempString.length()-1));
+                tempList.add(i+1,"]");
+                i--;
+            }
+            else
+                continue;
         }
-        return true;
+        temp="";
+        for(int i=0;i<tempList.size();i++)
+            temp+=tempList.get(i)+" ";
+        return temp;
+    }
+
+    private static boolean isValidName(String temp){
+        if(!temp.startsWith("\"")){
+            printSyntaxError(temp+" is not a word");
+            return false;
+        }
+        else if(temp.equals("\"")){
+            printSyntaxError("name can't be empty");
+            return false;
+        }
+        else if(!testLegal(temp.substring(1))){
+            printSyntaxError("name can't be reserved word");
+            return false;
+        }
+        else
+            return true;
+    }
+
+
+//    public static boolean executeCommandsV2(String[] allCommands){
+//        allCommands=bracketToString(allCommands);
+//
+//    }
+
+    //传入整行命令，返回数组，将[]转化为String
+    private static String[] bracketToString(String[] allCommands){
+        int i,j;
+        ArrayList<String>  tempAllCommands=new ArrayList<String>();
+        for(i=0;i<allCommands.length;i++) {
+            if(allCommands[i].equals("[")){
+                int countLeft=0;
+                for(j=i;j<allCommands.length;j++){
+                    if(allCommands[j].equals("["))
+                        countLeft++;
+                    else if(allCommands[j].equals("]"))
+                        if(countLeft!=0)
+                            countLeft--;
+                        else
+                            break;
+                    else
+                        continue;
+                }
+                String temp="";
+                if(j==allCommands.length)   //防止[]的情况，此时]匹配会越界
+                    j-=1;
+                for(int k=i;k<=j;k++){
+                    if(k!=j)
+                        temp+=allCommands[k]+" ";
+                    else
+                        temp+=allCommands[k];
+                }
+                tempAllCommands.add(temp);
+                i=j+1;
+            }
+            else
+                tempAllCommands.add(allCommands[i]);
+        }
+
+        return tempAllCommands.toArray(new String[tempAllCommands.size()]);
     }
 
 }
+
+//    private static boolean isBracketsPatch(String temp){
+//        temp=preformatBracket(temp);
+//        int prefix;
+//        int suffix;
+//        boolean flag=true;
+//        String[] tempArray=temp.split("\\s+");
+//        prefix=tempArray.length-1;
+//        while(prefix>=0){
+//            if(tempArray[prefix].startsWith("[")) {
+//                tempArray[prefix] = tempArray[prefix].substring(1);
+//                flag = false;
+//                for(suffix=prefix;suffix<tempArray.length;suffix++){
+//                    if(tempArray[suffix].endsWith("]")){
+//                        tempArray[suffix]=tempArray[suffix].substring(0,tempArray[suffix].length()-1);
+//                        flag=true;
+//                        break;
+//                    }
+//                }
+//            }
+//            if(!flag)
+//                return false;
+//            else
+//                prefix--;
+//        }
+//        for(suffix=tempArray.length-1;suffix>=0;suffix--)
+//            if(tempArray[suffix].endsWith("]")&&!tempArray[suffix].startsWith("\""))
+//                return false;
+//
+//        return true;
+//    }
+
+//public class myException extends Exception
+//{
+//    //此处的amount用来储存当出现异常（取出钱多于余额时）所缺乏的钱
+//    private String myError;
+//    public myException(String myError)
+//    {
+//        this.myError = myError;
+//    }
+//    public void printError()
+//    {
+//        System.out.println(myError);
+//    }
+//}
