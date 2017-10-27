@@ -8,35 +8,52 @@ import java.util.List;
 
 
 public class Mua {
+
+    //版本号
     private static final String myVersion="Version 0.0.2\n";
+
+    //变量的hashmap
     private static HashMap<String,String> nameSpace= new HashMap<>();
+
+    //输出buffer
     private static ArrayList<String> printBuffer=new ArrayList<>();
+
     private static Scanner input=new Scanner(System.in);
-    //public static HashMap tempNameSpace=new HashMap();
+
     //主函数
     public static void main(String[] args) {
-        System.out.println("----------------------------------------------");
-        System.out.print(
-         "           "+      " __  __             \n" +
-         "           "+      "|  \\/  |_   _  __ _ \n" +
-         "           "+      "| |\\/| | | | |/ _\\ |\n" +
-         "           "+      "| |  | | |_| | (_| |\n" +
-         "Welcome to "+      "|_|  |_|\\__/_|\\__/\\| " +myVersion);
-        System.out.println("----------------------------------------------");
-        System.out.println("   visit http://zhengcz.cn to get more help");
-        System.out.println("----------------------------------------------");
-        System.out.print(">>>");
+
+        //输出欢迎信息和版本号，输出命令输入提示符>>>
+        {
+            System.out.println("----------------------------------------------");
+            System.out.print(
+                    "           " + " __  __             \n" +
+                            "           " + "|  \\/  |_   _  __ _ \n" +
+                            "           " + "| |\\/| | | | |/ _\\ |\n" +
+                            "           " + "| |  | | |_| | (_| |\n" +
+                            "Welcome to " + "|_|  |_|\\__/_|\\__/\\| " + myVersion);
+            System.out.println("----------------------------------------------");
+            System.out.println("   visit http://zhengcz.cn to get more info   ");
+            System.out.println("              Author:st4rlgiht                ");
+            System.out.println("----------------------------------------------");
+            System.out.print(">>>");
+        }
 
         String command;
 
         //处理读入的命令直到读取到单行的exit为止
         while(!((command = input.nextLine()).equals("exit"))) {
+
+            //建立备份HasmMap保存命令执行前的所有变量信息
             HashMap<String,String> tempNameSpace=new HashMap<>();
             tempNameSpace.putAll(nameSpace);
+
+            //清空输出buffer
             printBuffer.clear();
 
+            //若左右括号不匹配，则提示错误
             if(!isBracketsPatch(command)){
-                printSyntaxError("'[' and ']' didn't patch!");
+                printSyntaxError("'[' and ']' not patch!");
                 System.out.print(">>>");
                 continue;
             }
@@ -46,7 +63,6 @@ public class Mua {
                 System.out.print(">>>");
                 continue;
             }
-
             if(command.contains(" //")){
                 command=command.substring(0,command.indexOf(" //"));
                 if(command.equals("")){
@@ -55,29 +71,33 @@ public class Mua {
                 }
             }
 
+            //预格式化[]与[]的匹配处理
             command=preformatBracket(command);
             String[] allCommands=command.split("\\s+");
-            allCommands=bracketToString(allCommands);
+            allCommands=bracketToString(allCommands);//将[]分别匹配转换为字符串
 
+            //命令执行
             ArrayList<String> allCommandsList=new ArrayList<>();
             for(String tempCommand:allCommands)
                 allCommandsList.add(tempCommand);
-            //若命令成功执行，则输出全部printBuffer，备份的nameSpace失效
+
+            //若命令成功执行，则输出全部printBuffer，备份的tempNameSpace失效
             if(executeCommands(allCommandsList,0))
                 for(String tempPrint:printBuffer)
                     System.out.println(tempPrint);
 
-            //若执行失败，则printBuffer的输出全部无效，使用备份的nameSpace恢复原来的nameSpace
+            //若执行失败，则printBuffer的输出全部无效，使用备份的tempNameSpace恢复原来的nameSpace
             else
                 nameSpace=tempNameSpace;
 
             System.out.print(">>>");
         }
 
+        //收到命令exit，提示退出信息
         System.out.println("GoodBye!");
     }
 
-    //命令调用执行函数，其中的[]已经被转换,返回执行成功与否
+    //命令执行函数，version 1
 //    public static boolean executeCommands(String[] allCommands){
 ////        for(int i=0;i<allCommands.length;i++)
 ////            System.out.println(allCommands[i]);
@@ -271,28 +291,41 @@ public class Mua {
 //
 //        return true;
 //    }
-    //函数得到的参数中不会有未处理的命令，字的字面量带有"，若非字面量则不应该有"
-    //返回值为""时表示有错误发生
+
+
+    //cmd函数得到的参数中不会有未处理的命令，字的字面量带有"，若非字面量则不应该有"
+
+    //make执行函数，返回值为""时表示有错误发生，返回make得到的值
     private static String cmdMake(String tempWord,String tempValue){
-        //检查tempWord的合法性
+        //检查tempWord是否是字
         if(!tempWord.startsWith("\"")) {
             printSyntaxError("the word literal must starts with '\"'");
             return "";
         }
 
+        //检查是否以：开头
         if(tempWord.startsWith("\":")){
             printSyntaxError("the name can't start with ':'");
             return "";
         }
 
         String temp=tempWord.substring(1);
+
+        //检查是否是空串
         if(temp.equals("\"")) {
             printSyntaxError("the name can't be empty");
             return "";
         }
 
+        //检查是否是保留字
         if(!testLegal(temp)){
             printSyntaxError("can't used reserved word as name");
+            return "";
+        }
+
+        //检查是否不以字母或下划线开头
+        if(!testFirstChar(temp)){
+            printSyntaxError("name must start with letter or _");
             return "";
         }
 
@@ -304,7 +337,7 @@ public class Mua {
             if(isBracketsPatch(tempValue))
                 nameSpace.put(tempWord,tempValue);
             else{
-                printSyntaxError("the '[' and ']' didn't patch");
+                printSyntaxError("the '[' and ']' not patch");
                 return "";
             }
         else if(tempValue.toLowerCase().equals("false")||tempValue.toLowerCase().equals("true"))
@@ -320,7 +353,7 @@ public class Mua {
         return tempValue;
     }
 
-    //当使用':'调用thing时，传送的tempWord应当加上"
+    //thing和：的执行函数，当使用':'调用thing时，输入的tempWord应当包含"
     private static String cmdThing(String tempWord){
         if(!tempWord.startsWith("\"")){
             printSyntaxError(tempWord+" is not a word");
@@ -334,16 +367,22 @@ public class Mua {
             printSyntaxError("word name can't be a reserved word");
             return "";
         }
+        else if(!testFirstChar(tempWord.substring(1))){
+            printSyntaxError("name must start with letter or _");
+            return "";
+        }
         else if(!nameSpace.containsKey(tempWord)) {
-            printPrompt("didn't have word named " + tempWord.substring(1));
+            printPrompt("not have word named " + "\""+tempWord.substring(1)+"\"");
             return "";
         }
         else
             return nameSpace.get(tempWord);
     }
+
+    //erase执行函数，返回erase的成功与否
     private static boolean cmdErase(String tempWord){
         if(!nameSpace.containsKey(tempWord)){
-            printPrompt("didn't have key named "+tempWord.substring(1));
+            printPrompt("didn't have key named "+"\""+tempWord.substring(1)+"\"");
             return false;
         }
         else{
@@ -351,6 +390,8 @@ public class Mua {
             return true;
         }
     }
+
+    //isname执行函数，返回tempWord的存在与否
     private static boolean cmdIsName(String tempWord){
         if(tempWord.equals("\"")){
             printPrompt("the name can't be empty");
@@ -360,6 +401,7 @@ public class Mua {
             return nameSpace.containsKey(tempWord);
     }
 
+    //print的执行函数，输出tempWord的值
     private static boolean cmdPrint(String tempWord){
         if(tempWord.startsWith("\""))
             printBuffer.add(tempWord+"\"");
@@ -375,6 +417,8 @@ public class Mua {
         }
         return true;
     }
+
+    //read的执行函数，读入一个合法的数字或者单词并返回
     private static String cmdRead() {
         System.out.print("read:");
         String temp=input.nextLine();
@@ -393,6 +437,8 @@ public class Mua {
         }
 
     }
+
+    //readlist的执行函数，读入一个合法的list并返回
     private static String cmdReadList(){
         System.out.print("readlist:");
         Scanner input=new Scanner(System.in);
@@ -400,7 +446,8 @@ public class Mua {
         return "[ "+temp+" ]";
     }
 
-    //Note:传入的两个值应该是准确的可以运算的数字，且若第一个为thing应该去给它赋予新的值
+    //add,sub,mul,div,mod的执行函数，传入的两个值应该是准确的可以运算的数字，且若第一个为thing应该去给它赋予新的值
+    //若command为div和mod，那么第二个参数不应该为0
     private static String cmdCompute(String str1,String str2,String command){
         double num1=Double.parseDouble(clearZero(str1));
         double num2=Double.parseDouble(clearZero(str2));
@@ -423,7 +470,8 @@ public class Mua {
         }
         return Double.toString(result);
     }
-    //传入前确保str1和str2都为word，或者都为num
+
+    //gt，eq，lt的执行函数，传入的参数str1和str2确保都为word，或者都为num
     private static boolean cmdCompare(String str1,String str2,String command){
         if(str1.startsWith("\"")){
             str1=str1.substring(1);
@@ -440,26 +488,34 @@ public class Mua {
         }
 
     }
+
+    //and，or的执行函数，返回逻辑运算结果
     private static boolean cmdAndOr(boolean bool1,boolean bool2,String command){
         if(command.equals("and"))
             return (bool1 & bool2);
         else
             return (bool1 | bool2);
     }
+
+    //not的执行函数，返回相反逻辑值
     private static boolean cmdNot(boolean bool){
         return !bool;
     }
 
+    //输出语法错误信息
     private static void printSyntaxError(String prompt){
         System.out.println("Systax Error: " +prompt);
     }
+    //输出警告信息，本次尚未用到
     private static void printWarning(String prompt){
         System.out.println("Warning: "+prompt);
     }
+    //输出一些提示信息
     private static void printPrompt(String prompt){
         System.out.println("Prompt: "+prompt);
     }
 
+    //判断是否是一个数字，包含负数、小数等，不包含复数
     private static boolean isDigits(String temp){
         if(temp.equals("."))
             return false;
@@ -474,7 +530,8 @@ public class Mua {
         int pointCount = countPoints(temp);
         return (pointCount == 0 || pointCount == 1);
     }
-    //isDigits的辅助函数，接受的String中的第一个'-'已经清理，所以后面不能再有'-'
+
+    //isDigits的辅助函数，接受的String temp若为负数，则它的'-'需要先清理后再传入，后面不能再有'-'
     private static boolean isNumValid(String temp){
         char[] tempArray=temp.toCharArray();
         for(char tempChar:tempArray)
@@ -484,7 +541,8 @@ public class Mua {
                 return false;
         return true;
     }
-    //使用isDigits判断过的值，若合法则可以用clearZero来将其格式化
+
+    //使用isDigits判断过的值，若合法则可以用clearZero来将其格式化，去除多余的0和小数点，补充缺少的0
     private static String clearZero(String temp){
         boolean flag=false;//false表示正数
         if (temp.startsWith("-")) {
@@ -515,6 +573,8 @@ public class Mua {
         else
             return temp;
     }
+
+    //计算字符中的小数点个数，isDigits的辅助函数
     private static int countPoints(String temp){
         int count = 0;
         char[] tempArray=temp.toCharArray();
@@ -524,7 +584,7 @@ public class Mua {
         return count;
     }
 
-    //检测名称是否与保留字相同，调用testLegal前应该事先去除'\"'
+    //检测变量名称是否与保留字相同，调用testLegal前应该事先去除"
     private static boolean testLegal(String temp){
         switch(temp) {
             case "make":
@@ -551,7 +611,15 @@ public class Mua {
         }
     }
 
-    //逻辑运算符结果统一返回函数
+    //检测变量名开头是否符合规范，即必须以字母或者下划线开头
+    private static boolean testFirstChar(String temp){
+        if(Character.isLetter(temp.charAt(0))||temp.charAt(0)=='_')
+            return true;
+        else
+            return false;
+    }
+
+    //比较运算符eq,gt,lt执行结果的统一返回函数，即统一进行返回，避免单个命令判断返回的重复
     private static boolean flagJudge(int flag,String command){
         if(flag<0)
             switch (command){
@@ -589,7 +657,7 @@ public class Mua {
             }
     }
 
-    //判断list的括号是否匹配
+    //判断list的左右括号个数是否匹配
     private static boolean isBracketsPatch(String temp){
         //temp=preformatBracket(temp);
         int countLeft=0;
@@ -606,6 +674,7 @@ public class Mua {
         return countLeft==countRight;
     }
 
+    //[]的预格式化函数，预格式化后[和]的左右都有空格（头尾非全部有）
     private static String preformatBracket(String temp){
         String[] tempArray=temp.split("\\s+");
         List<String> tempList=Arrays.asList(tempArray);
@@ -631,6 +700,7 @@ public class Mua {
         return temp;
     }
 
+    //检测是否是一个合法的变量名，不能是保留字，不能为空，不能以非数字和下划线开头，不能不是单词
     private static boolean isValidName(String temp){
         if(!temp.startsWith("\"")){
             printSyntaxError(temp+" is not a word");
@@ -644,11 +714,15 @@ public class Mua {
             printSyntaxError("name can't be reserved word");
             return false;
         }
+        else if(!testFirstChar(temp.substring(1))){
+            printSyntaxError("name must start with letter or _");
+            return false;
+        }
         else
             return true;
     }
 
-    //传入整行命令，返回数组，将[]转化为String
+    //传入整行命令，返回将其分隔后的数组，同时将整句[]转化为一个String
     private static String[] bracketToString(String[] allCommands){
         int i,j;
         ArrayList<String>  tempAllCommands=new ArrayList<String>();
@@ -685,6 +759,7 @@ public class Mua {
         return tempAllCommands.toArray(new String[tempAllCommands.size()]);
     }
 
+    //命令执行函数，version 2
     private static boolean executeCommands(ArrayList<String> allCommands,int tempIndex){
 
         for(int i=tempIndex;i<allCommands.size();i++) {
@@ -704,7 +779,7 @@ public class Mua {
                         if(temptemp.equals(""))
                             return false;
                         else if(i==0) {
-                            printBuffer.add("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but I didn't know what to with it");
+                            printBuffer.add("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but didn't know what to do with it");
                             allCommands.remove(i--);
                         }
                         else
@@ -742,7 +817,7 @@ public class Mua {
                         if(temptemp.equals(""))
                             return false;
                         else if(i==0) {
-                            printBuffer.add("thing "+allCommands.get(i+1)+" is "+temptemp+", but I didn't know what to with it");
+                            printBuffer.add("thing "+allCommands.get(i+1)+" is "+temptemp+", but didn't know what to with it");
                             allCommands.remove(i+1);
                             allCommands.remove(i--);
                         }
@@ -913,8 +988,7 @@ public class Mua {
         return true;
     }
 
-
-    //命令执行函数，version 2
+    //命令辅助执行函数，用于在命令执行中判断参数个数和调用递归
     private static boolean supportExcute(ArrayList<String> allCommands,String command,int i,int paraNum){
         for(int j=1;j<=paraNum;j++){
             if(i+paraNum>=allCommands.size()){
