@@ -10,7 +10,7 @@ import java.util.List;
 public class Mua {
 
     //版本号
-    private static final String myVersion="Version 0.0.2\n";
+    private static final String myVersion="Version 0.0.3\n";
 
     //变量的hashmap
     private static HashMap<String,String> nameSpace= new HashMap<>();
@@ -468,6 +468,7 @@ public class Mua {
             default:
                 result = num1 % num2;
         }
+
         return Double.toString(result);
     }
 
@@ -600,7 +601,7 @@ public class Mua {
             case "div":
             case "mod":
             case "eq":
-            case "gl":
+            case "gt":
             case "lt":
             case "and":
             case "or":
@@ -895,7 +896,7 @@ public class Mua {
                         }
                         else{
                             if(clearZero(allCommands.get(i+2)).equals("0")&&(allCommands.get(i).equals("mod")||allCommands.get(i).equals("div"))){
-                                printPrompt(" the second number can't be 0");
+                                printPrompt("the second number can't be 0");
                                 return false;
                             }
                             else{
@@ -921,7 +922,7 @@ public class Mua {
                             if(i==0)
                                 allCommands.remove(i--);
                         }
-                        if(allCommands.get(i+1).startsWith("\"")&&allCommands.get(i+2).startsWith("\"")){
+                        else if(allCommands.get(i+1).startsWith("\"")&&allCommands.get(i+2).startsWith("\"")){
                             allCommands.set(i,Boolean.toString(cmdCompare(allCommands.get(i+1),allCommands.get(i+2),tempString)));
                             allCommands.remove(i+2);
                             allCommands.remove(i+1);
