@@ -2,6 +2,13 @@
 Just a homework
 
 ### 更新日志
+v0.0.3 
+`2017-10-28`
+- fix:修复gt命令无法识别的问题
+- fix:修复gt、lt、eq在输入不同类型操作数时存在的数组溢出问题
+- note:mod结果与python结果不一致，与java一致，考虑是否修改与python一致
+- optimize: 优化输出提示信息
+
 v0.0.2
 `2017-10-27`
 - feature: 修改解释器逻辑
