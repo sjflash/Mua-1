@@ -11,6 +11,7 @@ v0.0.5
 v0.0.4
 
 `2017-11-28`
+- fix: 将自己写错了一直没发现，修改作者信息`st4rlgiht`为`st4rlight`
 - fix: 修复左右括号匹配的处理bug
 - optimize: 优化输出信息的格式
 - feature: 添加repeate的支持
