@@ -1,6 +1,9 @@
 package MUA;
 
+import javax.xml.bind.ValidationEvent;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
+import java.time.temporal.ValueRange;
 import java.util.*;
 
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -178,7 +181,7 @@ public class ComputeExpression {
             throw new Exception("one num is invalid");
     }
 
-    //与格式化函数，转化++ -+ +- -- -(
+    //预格式化函数，转化++ -+ +- -- -(
     public static String preFormate(String expression) {
         int pp=expression.indexOf("++");
         int ps=expression.indexOf("+-");
@@ -205,6 +208,168 @@ public class ComputeExpression {
             negativeBracket=expression.indexOf("-(");
         }
         return NumSupport.clearZero(expression);
+    }
+
+
+    //给运算表达式添加括号，方便处理
+    public static String addBrackets(String expression){
+        String[] allWords=expression.split("\\s+");
+        ArrayList<String> allExpressions=new ArrayList<>();
+        for(String temp:allWords)
+            allExpressions.add(temp);
+
+//        //先处理运算符分隔的情况
+//        for(int i=0;i<allExpressions.size();i++){
+//            if(hasOp(allExpressions.get(i))){
+//                String temp=allExpressions.get(i);
+//                if(temp.equals("+")||temp.equals("-")||temp.equals("*")||temp.equals("/")||temp.equals("%")) {
+//                    if (i == 0) {
+//                        if (allExpressions.size() > 1&&canAppend(allExpressions.get(i+1))) {
+//                            allExpressions.set(i, allExpressions.get(i) + allExpressions.get(i + 1));
+//                            allExpressions.remove(i+1);
+//                            i--;
+//                        }
+//                    }
+//                    else{
+//                        if(allExpressions.size()!=i+1) {
+//                            if(canAppend(allExpressions.get(i-1))){
+//                                allExpressions.set(i-1,allExpressions.get(i-1)+allExpressions.get(i));
+//                                allExpressions.remove(i);
+//                                i--;
+//                            }
+//                            if(canAppend(allExpressions.get(i+1))){
+//                                allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
+//                                allExpressions.remove(i);
+//                                i--;
+//                            }
+//                        }
+//                        else{
+//                            if(canAppend(allExpressions.get(i-1))) {
+//                                allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
+//                                allExpressions.remove(i);
+//                                i -= 2;
+//                            }
+//                        }
+//                    }
+//                }
+//                else if(temp.startsWith("+")||temp.startsWith("-")||temp.startsWith("*")||temp.startsWith("/")||temp.startsWith("%")){
+//                    if(i!=0)
+//                        if(canAppend(allExpressions.get(i-1))) {
+//                            allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
+//                            allExpressions.remove(i);
+//                            i -= 2;
+//                        }
+//                }
+//                else if(temp.endsWith("+")||temp.endsWith("-")||temp.endsWith("*")||temp.endsWith("/")||temp.endsWith("%")){
+//                    if(temp.charAt(temp.length()-2)!='\\'){
+//                        if(allExpressions.size()!=i+1){
+//                            if(canAppend(allExpressions.get(i+1))) {
+//                                allExpressions.set(i, allExpressions.get(i) + allExpressions.get(i + 1));
+//                                allExpressions.remove(i + 1);
+//                                i--;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+
+        allExpressions=combineBbrackets(allExpressions);
+
+        //给表达式添加括号，其中不对以运算符开头的String加括号，防止分割运算符（同时也是为了支持括号内任意加空格）
+        for(int i=0;i<allExpressions.size();i++) {
+            String tempStr=allExpressions.get(i);
+            String first=tempStr.substring(0,1);
+            String last=tempStr.substring(tempStr.length()-1,tempStr.length());
+            if(hasOp(tempStr)&&!tempStr.equals("(")&&!tempStr.equals(")")) {
+                if(!isOperator(first)||first.equals("("))
+                    if(!isOperator(last)||last.equals(")"))
+                        allExpressions.set(i, "( " + allExpressions.get(i) + " )");
+            }
+        }
+
+
+        //处理上一步之后的存在的单独以+ 或者 - 开头的表达式(此时它们是正负号)
+        for(int i=0;i<allExpressions.size();i++) {
+            String temp = allExpressions.get(i);
+            if (temp.startsWith("+") || temp.startsWith("-"))
+                if (!temp.equals("+") && !temp.equals("-"))
+                    allExpressions.set(i, "( " + temp + " )");
+        }
+
+        //分隔
+        for(int i=0;i<allExpressions.size();i++){
+            String temp=allExpressions.get(i);
+            for(int j=0;j<temp.length();j++){
+                char tempChar=temp.charAt(j);
+                if(isOperator(String.valueOf(tempChar))){
+                    temp=temp.substring(0,j)+" "+tempChar+" "+temp.substring(j+1);
+                    j+=2;
+                }
+            }
+            allExpressions.set(i,temp);
+        }
+
+        String result="";
+        for(int i=0;i<allExpressions.size();i++)
+            result+=allExpressions.get(i)+" ";
+
+        return result.trim();
+    }
+
+    //addBrackets辅助函数
+    public static boolean hasOp(String expression){
+        if(expression.indexOf("+")!=-1)
+            return true;
+        else if(expression.indexOf("-")!=-1)
+            return true;
+        else if(expression.indexOf("*")!=-1)
+            return true;
+        else if(expression.indexOf("/")!=-1)
+            return true;
+        else if(expression.indexOf("%")!=-1)
+            return true;
+        else if(expression.indexOf("(")!=-1)
+            return true;
+        else if(expression.indexOf(")")!=-1)
+            return true;
+        else
+            return false;
+    }
+
+
+    //使得句子中的括号匹配
+    public static ArrayList<String> combineBbrackets(ArrayList<String> allCommands){
+        for(int i=0;i<allCommands.size();i++){
+            String temp=allCommands.get(i);
+            if(temp.startsWith("\""))
+                continue;
+            if(countBrackets(temp,'(')>countBrackets(temp,')')){
+                if(allCommands.size()!=i+1) {
+                    allCommands.set(i, temp +" "+allCommands.get(i + 1));
+                    allCommands.remove(i+1);
+                    i--;
+                }
+            }
+            else if(countBrackets(temp,'(')<countBrackets(temp,')')){
+                if(i!=0){
+                    allCommands.set(i-1,allCommands.get(i-1)+" "+temp);
+                    allCommands.remove(i);
+                    i-=2;
+                }
+            }
+            else
+                continue;
+        }
+        return allCommands;
+    }
+
+    public static int countBrackets(String command,char type){
+        int count=0;
+        for(int i=0;i<command.length();i++)
+            if(command.charAt(i)==type)
+                count++;
+        return count;
     }
 
 }
