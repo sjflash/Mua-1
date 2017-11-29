@@ -1,9 +1,5 @@
 package MUA;
 
-import com.sun.deploy.pings.Pings;
-import com.sun.javafx.scene.control.skin.VirtualFlow;
-import com.sun.org.apache.xpath.internal.operations.Bool;
-
 import java.util.*;
 import java.lang.*;
 import java.util.ArrayList;
@@ -12,7 +8,7 @@ import java.util.List;
 public class Mua {
     
     //版本号
-    private static final String myVersion="Version 0.0.5\n";
+    private static final String myVersion="Version 0.0.6\n";
     //变量的hashmap
     private static HashMap<String,String> nameSpace= new HashMap<>();
     //输出buffer
@@ -22,6 +18,14 @@ public class Mua {
     //下面两个均用于处理表达式中的括号
     private static Stack<Integer> myLeftBracket=new Stack<>();//存储当前左括号的位置
     private static boolean returnFlag=false;//保存是从)返回，还是其他返回，false为其他返回
+
+    //以下变量用于提供函数支持
+    private static boolean isInFunction=false;
+    private static HashMap<String,String> childNameSpace=new HashMap<>();
+    private static Stack<Integer> funcPos=new Stack<>();
+    private static Stack< HashMap<String,String> > nameSpaceStack=new Stack<>();
+    private static boolean hasOutput=false;
+    private static String output="";
 
     //主函数
     public static void main(String[] args) {
@@ -45,6 +49,19 @@ public class Mua {
         //处理读入的命令直到读取到单行的exit为止
 
         while(!((command = input.nextLine().trim()).equals("exit"))) {
+            int count=0;
+            if(command.endsWith(" [")){
+                count++;
+                while(count!=0) {
+                    String temp = input.nextLine().trim();
+                    command+=" "+temp;
+                    if(temp.equals("["))
+                        count++;
+                    if(temp.equals("]"))
+                        count--;
+                }
+            }
+
             //建立备份HasmMap保存命令执行前的所有变量信息
             HashMap<String,String> tempNameSpace=new HashMap<>();
             tempNameSpace.putAll(nameSpace);
@@ -108,7 +125,7 @@ public class Mua {
         System.out.println("GoodBye!");
     }
 
-    //命令执行函数，version 2
+    //命令执行函数，version 3
     private static boolean executeCommands(ArrayList<String> allCommands,int tempIndex){
         //如果有表达式的话用来保存表达式
         String expression="";
@@ -116,7 +133,7 @@ public class Mua {
         for(int i=tempIndex;i<allCommands.size();i++) {
             String tempString=allCommands.get(i);
             String temptemp;
-            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)){
+            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString)){
 
                 //处理 ':'命令
                 if(tempString.startsWith(":")){
@@ -130,7 +147,7 @@ public class Mua {
                         if(temptemp.equals(""))
                             return false;
                         else if(i==0) {
-                            printBuffer.add("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but didn't know what to do with it");
+                            printBuffer.add("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but don't know what to do with it");
                             allCommands.remove(i--);
                         }
                         else
@@ -331,7 +348,7 @@ public class Mua {
                         if(!supportExcute(allCommands,tempString,i,2))
                             return false;
                         if(!NumSupport.isDigits(allCommands.get(i+1))) {
-                            PrintInfo.printSyntaxError("repeate don't get a num");
+                            PrintInfo.printSyntaxError("repeat don't get a num");
                             return false;
                         }
                         if(!allCommands.get(i+2).startsWith("[")||!allCommands.get(i+2).endsWith("]")) {
@@ -358,42 +375,107 @@ public class Mua {
                     case "/":
                     case "%":
                         break;
-                    case "(":
+                    case "(": {
                         myLeftBracket.push(i);
-                        while(!returnFlag) {
+                        while (!returnFlag) {
                             if (!executeCommands(allCommands, i + 1))//递归先执行（后面的值
                                 return false;
                         }
-                        returnFlag=false;
+                        returnFlag = false;
 
-                        if(i==0) {
-                            PrintInfo.printPrompt("the result is " +allCommands.get(i)+ ", but don't know what to do");
+                        if (i == 0) {
+                            PrintInfo.printPrompt("the result is " + allCommands.get(i) + ", but don't know what to do");
                             allCommands.remove(i--);
                         }
+                        if(tempIndex!=0)
+                            return true;
                         break;
-                    case ")":
-                        String tempExpression="";
+                    }
+                    case ")": {
+                        String tempExpression = "";
                         int myInt;
                         try {
-                            myInt=myLeftBracket.pop();
-                        }catch (Exception ex){
+                            myInt = myLeftBracket.pop();
+                        } catch (Exception ex) {
                             PrintInfo.printRuntimeError("( and ) don't match");
                             return false;
                         }
-                        for(int tempInt=myInt;tempInt<=i;tempInt++)
-                            tempExpression+=allCommands.get(tempInt);//产生表达式，从左括号到当前右括号
+                        for (int tempInt = myInt; tempInt <= i; tempInt++)
+                            tempExpression += allCommands.get(tempInt);//产生表达式，从左括号到当前右括号
                         try {
                             String tempResult = ComputeExpression.calculate(tempExpression);//计算值，可能会抛出异常
-                            allCommands.set(myInt,tempResult);//将左括号的值设置为运算结果
-                            for(int tempInt=i;tempInt>myInt;tempInt--)
+                            allCommands.set(myInt, tempResult);//将左括号的值设置为运算结果
+                            for (int tempInt = i; tempInt > myInt; tempInt--)
                                 allCommands.remove(tempInt);//移除左括号(当前保存的是运算结果)后面的东西
-                        }catch (Exception ex){
+                        } catch (Exception ex) {
                             System.out.println(ex.getMessage());
                             return false;
                         }
-                        returnFlag=true;//立flag表示从(中返回
+                        returnFlag = true;//立flag表示从(中返回
                         return true;
-                    default:
+                    }
+                    case "stop":
+                        return true;
+                    case "output":
+                        int func=funcPos.peek();
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        hasOutput=true;
+                        output=allCommands.get(i+1);
+                        allCommands.remove(i+1);
+                        allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    default://在v0.0.6以及之后的版本中,此时的default表示读到了一个函数
+                        String function;
+                        //设置在函数中
+                        boolean backUpIsInFunc=isInFunction;
+                        isInFunction=true;
+
+                        if(isInFunction){
+                            if(childNameSpace.containsKey("\""+tempString))
+                                function=childNameSpace.get("\""+tempString);
+                            else
+                                function=nameSpace.get("\""+tempString);
+                        }
+                        else
+                            function=nameSpace.get("\""+tempString);
+                        ArrayList<String> paras=FunctionSupport.getParameters(function);
+                        ArrayList<String> commands=FunctionSupport.getAllCommands(function);
+                        if(!supportExcute(allCommands,tempString,i,paras.size()))
+                            return false;
+
+                        //保存函数调用前的堆栈
+                        nameSpaceStack.push(childNameSpace);
+                        funcPos.push(i);
+
+                        //保存有无返回值状态
+                        boolean backUpHasOutput=hasOutput;
+
+                        //添加局部变量
+                        for(int index=0;index<paras.size();index++)
+                            childNameSpace.put("\""+paras.get(index),allCommands.get(i+index+1));
+
+                        //开始执行
+                        if(!executeCommands(commands,0))
+                            return false;
+
+                        //恢复之前的状态
+                        isInFunction=backUpIsInFunc;
+                        childNameSpace=nameSpaceStack.pop();
+                        funcPos.pop();
+
+                        for(int which=paras.size();which>0;which--)
+                            allCommands.remove(i + which);
+                        if(!hasOutput||i==0)
+                            allCommands.remove(i--);
+                        else
+                            allCommands.set(i,output);
+                        hasOutput=backUpHasOutput;
+
+                        if(tempIndex!=0)
+                            return true;
                         break;
                 }
             }
@@ -445,24 +527,41 @@ public class Mua {
 
         //在此处不区分value是何种类型 Note：可能要区别list和bool
         //将键值对放入nameSpace中
-        if(tempValue.startsWith("\""))
-            nameSpace.put(tempWord,tempValue);
+        if(tempValue.startsWith("\"")) {
+            if(isInFunction)
+                childNameSpace.put(tempWord,tempValue);
+            else
+                nameSpace.put(tempWord, tempValue);
+        }
         else if(tempValue.startsWith("["))
-            if(isBracketsPatch(tempValue,"["))
-                nameSpace.put(tempWord,tempValue);
+            if(isBracketsPatch(tempValue,"[")) {
+                if(isInFunction)
+                    childNameSpace.put(tempWord,tempValue);
+                else
+                    nameSpace.put(tempWord, tempValue);
+            }
             else{
                 PrintInfo.printSyntaxError("the '[' and ']' not match");
                 return "";
             }
-        else if(tempValue.toLowerCase().equals("false")||tempValue.toLowerCase().equals("true"))
-            nameSpace.put(tempWord,tempValue);
-        else
-            if(NumSupport.isDigits(tempValue))
-                nameSpace.put(tempWord,NumSupport.clearZero(tempValue));
-            else{
-                PrintInfo.printSyntaxError(tempValue+"is invalid");
+        else if(tempValue.toLowerCase().equals("false")||tempValue.toLowerCase().equals("true")) {
+            if(isInFunction)
+                childNameSpace.put(tempWord, tempValue);
+            else
+                nameSpace.put(tempWord, tempValue);
+        }
+        else {
+            if (NumSupport.isDigits(tempValue)) {
+                if (isInFunction)
+                    childNameSpace.put(tempWord, NumSupport.clearZero(tempValue));
+                else
+                    nameSpace.put(tempWord, NumSupport.clearZero(tempValue));
+
+            } else {
+                PrintInfo.printSyntaxError(tempValue + "is invalid");
                 return "";
             }
+        }
 
         return tempValue;
     }
@@ -485,21 +584,30 @@ public class Mua {
             PrintInfo.printSyntaxError("name must start with letter or _");
             return "";
         }
-        else if(!nameSpace.containsKey(tempWord)) {
+        else if(!childNameSpace.containsKey(tempWord)&&!nameSpace.containsKey(tempWord)) {
             PrintInfo.printPrompt("not have word named " + "\""+tempWord.substring(1)+"\"");
             return "";
         }
-        else
+        else {
+            if(isInFunction)
+                if(childNameSpace.containsKey(tempWord))
+                    return childNameSpace.get(tempWord);
             return nameSpace.get(tempWord);
+        }
     }
 
     //erase执行函数，返回erase的成功与否
     private static boolean cmdErase(String tempWord){
-        if(!nameSpace.containsKey(tempWord)){
+        if(!childNameSpace.containsKey(tempWord)&&!nameSpace.containsKey(tempWord)){
             PrintInfo.printPrompt("didn't have key named "+"\""+tempWord.substring(1)+"\"");
             return false;
         }
         else{
+            if(isInFunction)
+                if (childNameSpace.containsKey(tempWord)) {
+                    childNameSpace.remove(tempWord);
+                    return true;
+                }
             nameSpace.remove(tempWord);
             return true;
         }
@@ -512,7 +620,7 @@ public class Mua {
             return false;
         }
         else
-            return nameSpace.containsKey(tempWord);
+            return (nameSpace.containsKey(tempWord) || childNameSpace.containsKey(tempWord));
     }
 
     //print的执行函数，输出tempWord的值
@@ -656,20 +764,11 @@ public class Mua {
             case "erase":
             case "isname":
             case "print":
-            case "readlist":
-            case "read":
-            case "add":
-            case "sub":
-            case "mul":
-            case "div":
-            case "mod":
-            case "eq":
-            case "gt":
-            case "lt":
-            case "and":
-            case "or":
-            case "not":
-            case "repeat":
+            case "readlist": case "read":
+            case "add": case "sub": case "mul": case "div": case "mod":
+            case "eq": case "gt": case "lt":
+            case "and": case "or": case "not":
+            case "repeat": case "output": case "stop":
                 return false;
             default:
                 return true;
@@ -799,32 +898,31 @@ public class Mua {
     //传入整行命令，返回将其分隔后的数组，同时将整句[]转化为一个String
     public static String[] bracketToString(String[] allCommands){
         int i,j;
-        ArrayList<String>  tempAllCommands=new ArrayList<String>();
+        ArrayList<String>  tempAllCommands=new ArrayList<>();
         for(i=0;i<allCommands.length;i++) {
             if(allCommands[i].equals("[")){
                 int countLeft=0;
                 for(j=i;j<allCommands.length;j++){
                     if(allCommands[j].equals("["))
                         countLeft++;
-                    else if(allCommands[j].equals("]"))
-                        if(countLeft!=0)
-                            countLeft--;
+                    else if(allCommands[j].equals("]")) {
+                        if (countLeft != 0) {
+                            if(--countLeft==0)
+                                break;
+                        }
                         else
                             break;
+                    }
                     else
                         continue;
                 }
                 String temp="";
                 if(j==allCommands.length)   //防止[]的情况，此时]匹配会越界
                     j-=1;
-                for(int k=i;k<=j;k++){
-                    if(k!=j)
-                        temp+=allCommands[k]+" ";
-                    else
-                        temp+=allCommands[k];
-                }
-                tempAllCommands.add(temp);
-                i=j+1;
+                for(int k=i;k<=j;k++)
+                    temp+=allCommands[k]+" ";
+                tempAllCommands.add(temp.trim());
+                i=j;
             }
             else
                 tempAllCommands.add(allCommands[i]);
@@ -841,13 +939,36 @@ public class Mua {
                 return false;
             }
             String tempString=allCommands.get(i+j);
-            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString))
+            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString))
                 if(!executeCommands(allCommands,i+j))
                     return false;
                 else
                     j--;
         }
         return true;
+    }
+
+    private static boolean isAFunction(String name){
+        name="\""+name;
+        String value="";
+        if(isInFunction){
+            if(childNameSpace.containsKey(name)){
+                value=childNameSpace.get(name);
+                if(value.startsWith("["))
+                    return true;
+                else
+                    return false;
+            }
+        }
+        if(nameSpace.containsKey(name)){
+            value=nameSpace.get(name);
+            if(value.startsWith("["))
+                return true;
+            else
+                return false;
+        }
+
+        return false;
     }
 
 }
