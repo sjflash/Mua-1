@@ -23,7 +23,7 @@ public class NumSupport {
         for(char tempChar:tempArray)
             if(tempChar>='0'&&tempChar<='9')
                 continue;
-            else if(tempChar!='.')
+            else if(tempChar!='.' && tempChar!='E' && tempChar!='e' && tempChar!='-')
                 return false;
         return true;
     }
@@ -69,4 +69,15 @@ public class NumSupport {
                 count++;
         return count;
     }
+
+    public static double cmdRandom(double range){
+        return Math.random()*range;
+    }
+    public static double cmdSqrt(double num){
+        return Math.sqrt(num);
+    }
+    public static int cmdInt(double num){
+        return (int)Math.floor(num);
+    }
+
 }

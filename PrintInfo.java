@@ -18,4 +18,22 @@ public class PrintInfo {
     public static void printRuntimeError(String error){
         System.out.println("Error: "+error);
     }
+
+    public static void printVerAuthor(){
+        //版本号
+        final String myVersion="Version 0.6\n";
+
+        System.out.println("----------------------------------------------");
+        System.out.print(
+                "           " + " __  __             \n" +
+                        "           " + "|  \\/  |_   _  __ _ \n" +
+                        "           " + "| |\\/| | | | |/ _\\ |\n" +
+                        "           " + "| |  | | |_| | (_| |\n" +
+                        "Welcome to " + "|_|  |_|\\__/_|\\__/\\| " + myVersion);
+        System.out.println("----------------------------------------------");
+        System.out.println("   visit http://zhengcz.cn to get more info   ");
+        System.out.println("              Author:st4rlight                ");
+        System.out.println("----------------------------------------------");
+        System.out.print(">>>");
+    }
 }

@@ -3,16 +3,14 @@ package MUA;
 import java.util.*;
 import java.lang.*;
 import java.util.ArrayList;
-import java.util.List;
+
+import static MUA.Preformate.isBracketsPatch;
 
 public class Mua {
-    
-    //版本号
-    private static final String myVersion="Version 0.0.6\n";
     //变量的hashmap
     private static HashMap<String,String> nameSpace= new HashMap<>();
     //输出buffer
-    private static ArrayList<String> printBuffer=new ArrayList<>();
+    //private static ArrayList<String> printBuffer=new ArrayList<>();
     private static Scanner input=new Scanner(System.in);
 
     //下面两个均用于处理表达式中的括号
@@ -20,57 +18,60 @@ public class Mua {
     private static boolean returnFlag=false;//保存是从)返回，还是其他返回，false为其他返回
 
     //以下变量用于提供函数支持
+    //指示是否在函数之中
     private static boolean isInFunction=false;
+    //局部变量表
     private static HashMap<String,String> childNameSpace=new HashMap<>();
+    //函数调用位置堆栈，用于在设置函数的返回值确定返回值要放的位置
     private static Stack<Integer> funcPos=new Stack<>();
+    //局部变量表堆栈，用于在多层函数调用时，保存前一层函数的局部变量
     private static Stack< HashMap<String,String> > nameSpaceStack=new Stack<>();
+    //指示是否有返回值
     private static boolean hasOutput=false;
+    //返回值的值，与hasOutput搭配使用
     private static String output="";
 
     //主函数
     public static void main(String[] args) {
         //输出欢迎信息和版本号，输出命令输入提示符>>>
-        {
-            System.out.println("----------------------------------------------");
-            System.out.print(
-                    "           " + " __  __             \n" +
-                            "           " + "|  \\/  |_   _  __ _ \n" +
-                            "           " + "| |\\/| | | | |/ _\\ |\n" +
-                            "           " + "| |  | | |_| | (_| |\n" +
-                            "Welcome to " + "|_|  |_|\\__/_|\\__/\\| " + myVersion);
-            System.out.println("----------------------------------------------");
-            System.out.println("   visit http://zhengcz.cn to get more info   ");
-            System.out.println("              Author:st4rlight                ");
-            System.out.println("----------------------------------------------");
-            System.out.print(">>>");
-        }
+        PrintInfo.printVerAuthor();
+        //添加预有变量pi
+        nameSpace.put("\"pi","3.1415926535");
 
         String command;
         //处理读入的命令直到读取到单行的exit为止
 
         while(!((command = input.nextLine().trim()).equals("exit"))) {
-            int count=0;
-            if(command.endsWith(" [")){
-                count++;
-                while(count!=0) {
-                    String temp = input.nextLine().trim();
-                    command+=" "+temp;
-                    if(temp.equals("["))
-                        count++;
-                    if(temp.equals("]"))
-                        count--;
+//            int count=0;
+//            if(command.endsWith("[")){
+//                count++;
+//                while(count!=0) {
+//                    String temp = input.nextLine().trim();
+//                    command+=" "+temp;
+//                    if(temp.equals("["))
+//                        count++;
+//                    if(temp.equals("]"))
+//                        count--;
+//                }
+//            }
+            //Note: 添加限定, word中不能以'['结尾
+            if(command.endsWith("[")){
+                String line=input.nextLine().trim();
+                while(!line.equals("")){
+                    command=command+" "+line;
+                    line=input.nextLine().trim();
                 }
             }
 
-            //建立备份HasmMap保存命令执行前的所有变量信息
-            HashMap<String,String> tempNameSpace=new HashMap<>();
-            tempNameSpace.putAll(nameSpace);
+            //建立备份HasmMap保存命令执行前的所有变量信息，若命令出错则可用于恢复
+            //HashMap<String,String> tempNameSpace=new HashMap<>();
+            //tempNameSpace.putAll(nameSpace);
 
             //清空输出buffer
-            printBuffer.clear();
+            //printBuffer.clear();
 
             //预格式化[]
-            command=preformatBracket(command,"[");
+            command=Preformate.preformatBracket(command,"[");
 
             //若左右括号不匹配，则提示错误
             if(!isBracketsPatch(command,"[")){
@@ -91,9 +92,10 @@ public class Mua {
                 }
             }
 
-            //运算符的分隔
+            //添加空格进行运算符的分隔,并添加括号
             if(ComputeExpression.hasOp(command))
                 command=ComputeExpression.addBrackets(command);
+            //检测左右括号匹配
             if(!isBracketsPatch(command,"(")){
                 PrintInfo.printSyntaxError("'(' and ')' don't match!");
                 System.out.print(">>>");
@@ -102,7 +104,12 @@ public class Mua {
 
             //[]的匹配处理
             String[] allCommands=command.split("\\s+");
-            allCommands=bracketToString(allCommands);//将[]分别匹配转换为字符串
+            allCommands=Commands.bracketToString(allCommands);//将[]分别匹配转换为字符串
+
+            //测试语句
+//            ArrayList<String> temp=ListSup.listToArray(allCommands[2]);
+//            System.out.println(ListSup.listToArray(temp.get(1)));
+
 
             //命令执行
             ArrayList<String> allCommandsList=new ArrayList<>();
@@ -110,13 +117,13 @@ public class Mua {
                 allCommandsList.add(tempCommand);
 
             //若命令成功执行，则输出全部printBuffer，备份的tempNameSpace失效
-            if(executeCommands(allCommandsList,0))
-                for(String tempPrint:printBuffer)
-                    System.out.println(tempPrint);
+            if(executeCommands(allCommandsList,0));
+                //for(String tempPrint:printBuffer)
+                    //System.out.println(tempPrint);
 
             //若执行失败，则printBuffer的输出全部无效，使用备份的tempNameSpace恢复原来的nameSpace
-            else
-                nameSpace=tempNameSpace;
+            //else
+                //nameSpace=tempNameSpace;
 
             System.out.print(">>>");
         }
@@ -133,11 +140,11 @@ public class Mua {
         for(int i=tempIndex;i<allCommands.size();i++) {
             String tempString=allCommands.get(i);
             String temptemp;
-            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString)){
+            if(!Commands.testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString)){
 
                 //处理 ':'命令
                 if(tempString.startsWith(":")){
-                    if(!testLegal(tempString.substring(1))){
+                    if(!Commands.testLegal(tempString.substring(1))){
                         PrintInfo.printSyntaxError(tempString.substring(1)+" is not a legal name");
                         return false;
                     }
@@ -147,7 +154,7 @@ public class Mua {
                         if(temptemp.equals(""))
                             return false;
                         else if(i==0) {
-                            printBuffer.add("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but don't know what to do with it");
+                            System.out.println("thing "+"\""+tempString.substring(1)+" is "+temptemp+", but don't know what to do with it");
                             allCommands.remove(i--);
                         }
                         else
@@ -185,7 +192,7 @@ public class Mua {
                         if(temptemp.equals(""))
                             return false;
                         else if(i==0) {
-                            printBuffer.add("thing "+allCommands.get(i+1)+" is "+temptemp+", but didn't know what to with it");
+                            System.out.println("thing "+allCommands.get(i+1)+" is "+temptemp+", but didn't know what to with it");
                             allCommands.remove(i+1);
                             allCommands.remove(i--);
                         }
@@ -244,22 +251,18 @@ public class Mua {
                         break;
                     }
                     case "read": {
-                        allCommands.set(i, cmdRead());
+                        allCommands.set(i, Commands.cmdRead());
                         if (tempIndex != 0)
                             return true;
                         break;
                     }
                     case "readlist": {
-                        allCommands.set(i, cmdReadList());
+                        allCommands.set(i, Commands.cmdReadList());
                         if (tempIndex != 0)
                             return true;
                         break;
                     }
-                    case "add":
-                    case "sub":
-                    case "mul":
-                    case "div":
-                    case "mod": {
+                    case "add": case "sub": case "mul": case "div": case "mod": {
                         if (!supportExcute(allCommands, tempString, i, 2))
                             return false;
                         if (!NumSupport.isDigits(allCommands.get(i + 1)) || !NumSupport.isDigits(allCommands.get(i + 2))) {
@@ -270,7 +273,7 @@ public class Mua {
                                 PrintInfo.printPrompt("the second number can't be 0");
                                 return false;
                             } else {
-                                allCommands.set(i, cmdCompute(allCommands.get(i + 1), allCommands.get(i + 2), tempString));
+                                allCommands.set(i, Commands.cmdCompute(allCommands.get(i + 1), allCommands.get(i + 2), tempString));
                                 allCommands.remove(i + 2);
                                 allCommands.remove(i + 1);
                                 if (i == 0)
@@ -281,19 +284,17 @@ public class Mua {
                             return true;
                         break;
                     }
-                    case "eq":
-                    case "gt":
-                    case "lt": {
+                    case "eq": case "gt": case "lt": {
                         if (!supportExcute(allCommands, tempString, i, 2))
                             return false;
                         if (NumSupport.isDigits(allCommands.get(i + 1)) && NumSupport.isDigits(allCommands.get(i + 2))) {
-                            allCommands.set(i, Boolean.toString(cmdCompare(allCommands.get(i + 1), allCommands.get(i + 2), tempString)));
+                            allCommands.set(i, Boolean.toString(Commands.cmdCompare(allCommands.get(i + 1), allCommands.get(i + 2), tempString)));
                             allCommands.remove(i + 2);
                             allCommands.remove(i + 1);
                             if (i == 0)
                                 allCommands.remove(i--);
                         } else if (allCommands.get(i + 1).startsWith("\"") && allCommands.get(i + 2).startsWith("\"")) {
-                            allCommands.set(i, Boolean.toString(cmdCompare(allCommands.get(i + 1), allCommands.get(i + 2), tempString)));
+                            allCommands.set(i, Boolean.toString(Commands.cmdCompare(allCommands.get(i + 1), allCommands.get(i + 2), tempString)));
                             allCommands.remove(i + 2);
                             allCommands.remove(i + 1);
                             if (i == 0)
@@ -306,8 +307,7 @@ public class Mua {
                             return true;
                         break;
                     }
-                    case "and":
-                    case  "or": {
+                    case "and": case  "or": {
                         if (!supportExcute(allCommands, tempString, i, 2))
                             return false;
                         if (!allCommands.get(i + 1).toLowerCase().equals("false") && !allCommands.get(i + 1).toLowerCase().equals("true")) {
@@ -318,7 +318,7 @@ public class Mua {
                             PrintInfo.printSyntaxError(allCommands.get(i + 2) + " is not boolean");
                             return false;
                         } else {
-                            allCommands.set(i, Boolean.toString(cmdAndOr(Boolean.parseBoolean(allCommands.get(i + 1)), Boolean.parseBoolean(allCommands.get(i + 2)), tempString)));
+                            allCommands.set(i, Boolean.toString(Commands.cmdAndOr(Boolean.parseBoolean(allCommands.get(i + 1)), Boolean.parseBoolean(allCommands.get(i + 2)), tempString)));
                             allCommands.remove(i + 2);
                             allCommands.remove(i + 1);
                             if (i == 0)
@@ -335,7 +335,7 @@ public class Mua {
                             PrintInfo.printSyntaxError(allCommands.get(i + 1) + " is not boolean");
                             return false;
                         } else {
-                            allCommands.set(i, Boolean.toString(cmdNot(Boolean.parseBoolean(allCommands.get(i + 1)))));
+                            allCommands.set(i, Boolean.toString(Commands.cmdNot(Boolean.parseBoolean(allCommands.get(i + 1)))));
                             allCommands.remove(i + 1);
                             if (i == 0)
                                 allCommands.remove(i--);
@@ -369,11 +369,7 @@ public class Mua {
                         if(tempIndex!=0)
                             return true;
                         break;}
-                    case "+":
-                    case "-":
-                    case "*":
-                    case "/":
-                    case "%":
+                    case "+": case "-": case "*": case "/": case "%": case "^":
                         break;
                     case "(": {
                         myLeftBracket.push(i);
@@ -416,18 +412,346 @@ public class Mua {
                     }
                     case "stop":
                         return true;
-                    case "output":
-                        int func=funcPos.peek();
+                    case "output": {
+                        int func = funcPos.peek();
                         if (!supportExcute(allCommands, tempString, i, 1))
                             return false;
-                        hasOutput=true;
-                        output=allCommands.get(i+1);
-                        allCommands.remove(i+1);
+                        hasOutput = true;
+                        output = allCommands.get(i + 1);
+                        allCommands.remove(i + 1);
                         allCommands.remove(i--);
                         if (tempIndex != 0)
                             return true;
                         break;
-                    default://在v0.0.6以及之后的版本中,此时的default表示读到了一个函数
+                    }
+                    //v0.7及以后添加
+                    case "export": {
+                        boolean myTemp = cmdExport();
+                        allCommands.set(i, Boolean.toString(myTemp));
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "isnumber": case "isword": case "islist": case "isbool": case "isempty": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        boolean myTemp = false;
+                        switch (tempString) {
+                            case "isnumber":
+                                myTemp = TypeJudge.isNum(allCommands.get(i + 1));
+                                break;
+                            case "isword":
+                                myTemp = TypeJudge.isWord(allCommands.get(i + 1));
+                                break;
+                            case "islist":
+                                myTemp = TypeJudge.isList(allCommands.get(i + 1));
+                                break;
+                            case "isbool":
+                                myTemp = TypeJudge.isBool(allCommands.get(i + 1));
+                                break;
+                            case "isempty":
+                                myTemp = TypeJudge.isEmpty(allCommands.get(i + 1));
+                                break;
+                            default:
+                                break;
+                        }
+
+                        allCommands.set(i, Boolean.toString(myTemp));
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "random": case "sqrt": case "int": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        if (!NumSupport.isDigits(allCommands.get(i + 1))) {
+                            PrintInfo.printRuntimeError(allCommands.get(i + 1) + " is not a valid num.");
+                            return false;
+                        }
+                        if(Double.valueOf(allCommands.get(i+1)) > Double.MAX_VALUE){
+                            PrintInfo.printRuntimeError("所给数值超出了Double的范围");
+                            return false;
+                        }
+                        if (tempString.equals("int")) {
+                            int tempInt = NumSupport.cmdInt(Double.valueOf(allCommands.get(i + 1)));
+                            allCommands.set(i, String.valueOf(tempInt));
+                        } else if (tempString.equals("random")) {
+                            double tempDouble = NumSupport.cmdRandom(Double.valueOf(allCommands.get(i + 1)));
+                            allCommands.set(i, String.valueOf(tempDouble));
+                        } else {
+                            double tempDouble = NumSupport.cmdSqrt(Double.valueOf(allCommands.get(i + 1)));
+                            allCommands.set(i, String.valueOf(tempDouble));
+                        }
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "run": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        String tempList = allCommands.get(i + 1).trim();//后面带的这个参数，可能不是list
+
+                        if (!TypeJudge.isList(tempList)) {
+                            PrintInfo.printRuntimeError(tempList + " is not a valid list");
+                            return false;
+                        }
+
+                        boolean tempBool = executeCommands(ListSup.listToArray(tempList), 0);
+                        allCommands.set(i, Boolean.toString(tempBool));
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "wait": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        String tempStr = allCommands.get(i + 1);
+                        if (!NumSupport.isDigits(tempStr) || Double.valueOf(tempStr) < 0) {
+                            PrintInfo.printRuntimeError(tempStr + " 不是有效数字或者小于0");
+                            return false;
+                        }
+                        try {
+                            Thread.sleep(Integer.parseInt(tempStr));
+                            allCommands.remove(i + 1);
+                            allCommands.remove(i--);
+                            if (tempIndex != 0)
+                                return true;
+                        } catch (InterruptedException ex) {
+                            PrintInfo.printRuntimeError("InterruptedException");
+                            return false;
+                        }
+                        break;
+                    }
+                    case "erall": case "poall": {
+                        HashMap<String, String> tempNS;
+                        tempNS = isInFunction ? childNameSpace : nameSpace;
+
+                        if (tempString.equals("erall"))
+                            tempNS.clear();
+                        else
+                            Commands.cmdPoall(tempNS);
+                        allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "save": case "load": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        String tempStr = allCommands.get(i + 1);
+                        if (!TypeJudge.isWord(tempStr) || tempStr.equals("\"")) {
+                            PrintInfo.printRuntimeError("word for filename is invalid");
+                            return false;
+                        }
+
+                        HashMap<String, String> tempNameSpace;
+                        tempNameSpace = isInFunction ? childNameSpace : nameSpace;
+                        Boolean tempBool = false;
+                        if (tempString.equals("save"))
+                            tempBool = Commands.cmdSave(tempNameSpace, tempStr.substring(1));
+                        else
+                            tempBool = Commands.cmdLoad(tempNameSpace, tempStr.substring(1));
+                        allCommands.set(i, Boolean.toString(tempBool));
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        break;
+                    }
+                    case "word": {
+                        if (!supportExcute(allCommands, tempString, i, 2))
+                            return false;
+                        String arg1 = allCommands.get(i + 1);
+                        String arg2 = allCommands.get(i + 2);
+                        String result = "";
+                        if (!TypeJudge.isWord(arg1)) {
+                            PrintInfo.printRuntimeError(arg1 + " is not a valid word");
+                            return false;
+                        }
+                        if (!TypeJudge.isWord(arg1) && !TypeJudge.isBool(arg1) && !TypeJudge.isNum(arg1)) {
+                            PrintInfo.printRuntimeError(arg2 + " is not a valid word or number or bool");
+                            return false;
+                        }
+                        if (TypeJudge.isWord(arg2))
+                            result = arg1 + arg2.substring(1);
+                        else
+                            result = arg1 + arg2;
+                        allCommands.set(i, result);
+                        allCommands.remove(i + 2);
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "if":{
+                        if (!supportExcute(allCommands, tempString, i, 3))
+                            return false;
+                        String arg1 = allCommands.get(i + 1);
+                        if(arg1.startsWith("\""))
+                            arg1=arg1.substring(1);
+                        String arg2 = allCommands.get(i + 2);
+                        String arg3 = allCommands.get(i + 3);
+                        if(!TypeJudge.isBool(arg1)){
+                            PrintInfo.printRuntimeError(arg1+" is not a boolean");
+                            return false;
+                        }
+                        if(!TypeJudge.isList(arg2)||!TypeJudge.isList(arg3)){
+                            PrintInfo.printRuntimeError(arg2+" or "+arg3+" are not all list");
+                            return false;
+                        }
+                        allCommands.remove(i + 3);
+                        allCommands.remove(i+2);
+                        allCommands.remove(i+1);
+                        allCommands.remove(i);
+
+                        ArrayList<String> tempArr=null;
+                        if(arg1.toLowerCase().equals("true"))
+                            tempArr=ListSup.listToArray(arg2);
+                        else
+                            tempArr=ListSup.listToArray(arg3);
+
+                        for(int index=tempArr.size()-1;index>=0;index--)
+                            allCommands.add(i,tempArr.get(index));
+                        i--;//将1减1以便可以继续执行
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "sentence": case "list": {
+                        if (!supportExcute(allCommands, tempString, i, 2))
+                            return false;
+                        ArrayList<String> tempArr = new ArrayList<>();
+                        String arg1=allCommands.get(i+1);
+                        String arg2=allCommands.get(i+2);
+                        if(tempString.equals("list")) {//如果是list不用拆开，两个直接组装
+                            tempArr.add(arg1);
+                            tempArr.add(arg2);
+                        }else{//如果是sentence，list需要拆开，再进行组装。
+                            if(TypeJudge.isList(arg1))
+                                tempArr.addAll(ListSup.listToArray(arg1));
+                            else
+                                tempArr.add(arg1);
+                            if(TypeJudge.isList(arg2))
+                                tempArr.addAll(ListSup.listToArray(arg2));
+                            else
+                                tempArr.add(arg2);
+                        }
+                        allCommands.set(i, ListSup.ArrayToList(tempArr));
+                        allCommands.remove(i + 2);
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "join": {
+                        if (!supportExcute(allCommands, tempString, i, 2))
+                            return false;
+                        String arg1 = allCommands.get(i + 1);
+                        String arg2 = allCommands.get(i + 2);
+                        if (!TypeJudge.isList(arg1)) {
+                            PrintInfo.printRuntimeError(arg1 + " is not a valid list");
+                            return false;
+                        }
+                        ArrayList<String> tempArr = ListSup.listToArray(arg1);
+                        tempArr.add(arg2);
+                        allCommands.set(i, ListSup.ArrayToList(tempArr));
+                        allCommands.remove(i + 2);
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "first": case "last": case "butfirst": case "butlast": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        String arg = allCommands.get(i + 1);
+                        String result = "";
+                        if (!TypeJudge.isWord(arg) && !TypeJudge.isList(arg)) {
+                            PrintInfo.printRuntimeError(arg + " is not a valid word or list");
+                            return false;
+                        }
+                        if (TypeJudge.isWord(arg)) {
+                            switch (tempString) {
+                                case "first":
+                                    result = arg.length() == 1 ? "" : "\"" + String.valueOf(arg.charAt(1));
+                                    break;
+                                case "last":
+                                    result = arg.length() == 1 ? "" : "\"" + String.valueOf(arg.charAt(arg.length() - 1));
+                                    break;
+                                case "butfirst":
+                                    result = arg.length() <= 2 ? "" : "\"" + arg.substring(2);
+                                    break;
+                                case "butlast":
+                                    result = arg.length() <= 2 ? "" : arg.substring(0, arg.length() - 1);
+                                    break;
+                            }
+                        } else {
+                            ArrayList<String> temp = null;
+                            switch (tempString) {
+                                case "first":
+                                    result = ListSup.listToArray(arg).get(0);
+                                    if (!result.startsWith("\""))
+                                        result = "\"" + result;
+                                    break;
+                                case "last":
+                                    temp = ListSup.listToArray(arg);
+                                    result = temp.get(temp.size() - 1);
+                                    if (!result.startsWith("\""))
+                                        result = "\"" + result;
+                                    break;
+                                case "butfirst":
+                                    temp = ListSup.listToArray(arg);
+                                    temp.remove(0);
+                                    result = ListSup.ArrayToList(temp);
+                                    break;
+                                case "butlast":
+                                    temp = ListSup.listToArray(arg);
+                                    temp.remove(temp.size() - 1);
+                                    result = ListSup.ArrayToList(temp);
+                                    break;
+                            }
+                        }
+                        allCommands.set(i, result);
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    case "abs": {
+                        if (!supportExcute(allCommands, tempString, i, 1))
+                            return false;
+                        String arg = allCommands.get(i + 1);
+                        if (!TypeJudge.isNum(arg)) {
+                            PrintInfo.printRuntimeError(arg + " is not a valid num for abs");
+                            return false;
+                        }
+                        allCommands.set(i, String.valueOf(Math.abs(Double.parseDouble(arg))));
+                        allCommands.remove(i + 1);
+                        if (i == 0)
+                            allCommands.remove(i--);
+                        if (tempIndex != 0)
+                            return true;
+                        break;
+                    }
+                    default:{//在v0.6以及之后的版本中,此时的default表示读到了一个函数
                         String function;
                         //设置在函数中
                         boolean backUpIsInFunc=isInFunction;
@@ -447,7 +771,10 @@ public class Mua {
                             return false;
 
                         //保存函数调用前的堆栈
-                        nameSpaceStack.push(childNameSpace);
+                        HashMap<String,String> tempNS=new HashMap<>();
+                        tempNS.putAll(childNameSpace);
+                        nameSpaceStack.push(tempNS);
+
                         funcPos.push(i);
 
                         //保存有无返回值状态
@@ -476,7 +803,7 @@ public class Mua {
 
                         if(tempIndex!=0)
                             return true;
-                        break;
+                        break;}
                 }
             }
             else
@@ -485,7 +812,7 @@ public class Mua {
 
         if(allCommands.size()!=0&&tempIndex==0) {
             for (String tempOut : allCommands)
-                printBuffer.add("can't solve: " + tempOut);
+                System.out.println("can't solve: " + tempOut);
         }
         return true;
     }
@@ -514,13 +841,13 @@ public class Mua {
         }
 
         //检查是否是保留字
-        if(!testLegal(temp)){
+        if(!Commands.testLegal(temp)){
             PrintInfo.printSyntaxError("can't used reserved word as name");
             return "";
         }
 
         //检查是否不以字母或下划线开头
-        if(!testFirstChar(temp)){
+        if(!Commands.testFirstChar(temp)){
             PrintInfo.printSyntaxError("name must start with letter or _");
             return "";
         }
@@ -576,16 +903,16 @@ public class Mua {
             PrintInfo.printPrompt("the name can't be empty");
             return "";
         }
-        else if(!testLegal(tempWord.substring(1))){
+        else if(!Commands.testLegal(tempWord.substring(1))){
             PrintInfo.printSyntaxError("word name can't be a reserved word");
             return "";
         }
-        else if(!testFirstChar(tempWord.substring(1))){
+        else if(!Commands.testFirstChar(tempWord.substring(1))){
             PrintInfo.printSyntaxError("name must start with letter or _");
             return "";
         }
         else if(!childNameSpace.containsKey(tempWord)&&!nameSpace.containsKey(tempWord)) {
-            PrintInfo.printPrompt("not have word named " + "\""+tempWord.substring(1)+"\"");
+            PrintInfo.printRuntimeError("not have word named " + "\""+tempWord.substring(1)+"\"");
             return "";
         }
         else {
@@ -627,106 +954,21 @@ public class Mua {
     private static boolean cmdPrint(String tempWord){
         if(tempWord.startsWith("\"")) {
             if(tempWord.equals("\""))
-                printBuffer.add("\"\"");
+                System.out.println("\"\"");
             else
-                printBuffer.add(tempWord.substring(1));
+                System.out.println(tempWord.substring(1));
         }
         else if(tempWord.equals("true")||tempWord.equals("false"))
-            printBuffer.add(tempWord);
+            System.out.println(tempWord);
         else if(tempWord.startsWith("["))
-            printBuffer.add(tempWord);
+            System.out.println(tempWord);
         else if(NumSupport.isDigits(tempWord))
-            printBuffer.add(NumSupport.clearZero(tempWord));
+            System.out.println(NumSupport.clearZero(tempWord));
         else{
             PrintInfo.printSyntaxError(tempWord+" is invalid");
             return false;
         }
         return true;
-    }
-
-    //read的执行函数，读入一个合法的数字或者单词并返回
-    private static String cmdRead() {
-        System.out.print("read:");
-        String temp=input.nextLine();
-        char[] tempArray=temp.toCharArray();
-        while(true){
-            if(tempArray[0]=='\"')
-                return temp;
-            else
-                if(NumSupport.isDigits(temp))
-                    return NumSupport.clearZero(temp);
-                else
-                    PrintInfo.printPrompt(temp+" is invalid, input again");
-            System.out.print("read:");
-            temp=input.nextLine();
-            tempArray=temp.toCharArray();
-        }
-
-    }
-
-    //readlist的执行函数，读入一个合法的list并返回
-    private static String cmdReadList(){
-        System.out.print("readlist:");
-        Scanner input=new Scanner(System.in);
-        String temp=input.nextLine();
-        return "[ "+temp+" ]";
-    }
-
-    //add,sub,mul,div,mod的执行函数，传入的两个值应该是准确的可以运算的数字，且若第一个为thing应该去给它赋予新的值
-    //若command为div和mod，那么第二个参数不应该为0
-    private static String cmdCompute(String str1,String str2,String command){
-        double num1=Double.parseDouble(NumSupport.clearZero(str1));
-        double num2=Double.parseDouble(NumSupport.clearZero(str2));
-        double result;
-        switch (command) {
-            case "add":
-                result = num1 + num2;
-                break;
-            case "sub":
-                result = num1 - num2;
-                break;
-            case "mul":
-                result = num1 * num2;
-                break;
-            case "div":
-                result = num1 / num2;
-                break;
-            default:
-                result = num1 % num2;
-        }
-
-        return Double.toString(result);
-    }
-
-    //gt，eq，lt的执行函数，传入的参数str1和str2确保都为word，或者都为num
-    private static boolean cmdCompare(String str1,String str2,String command){
-        if(str1.startsWith("\"")){
-            str1=str1.substring(1);
-            str2=str2.substring(1);
-            int flag=str1.compareTo(str2);
-            return flagJudge(flag,command);
-        }
-        else{
-            double num1=Double.parseDouble(NumSupport.clearZero(str1));
-            double num2=Double.parseDouble(NumSupport.clearZero(str2));
-            int flag=Double.compare(num1,num2);
-
-            return flagJudge(flag,command);
-        }
-
-    }
-
-    //and，or的执行函数，返回逻辑运算结果
-    private static boolean cmdAndOr(boolean bool1,boolean bool2,String command){
-        if(command.equals("and"))
-            return (bool1 & bool2);
-        else
-            return (bool1 | bool2);
-    }
-
-    //not的执行函数，返回相反逻辑值
-    private static boolean cmdNot(boolean bool){
-        return !bool;
     }
 
     //repeate的执行函数，传入的参数number必须是一个数,list含有左右的[],返回成功执行与否
@@ -756,121 +998,20 @@ public class Mua {
         return true;
     }
 
-    //检测变量名称是否与保留字相同，调用testLegal前应该事先去除"
-    private static boolean testLegal(String temp){
-        switch(temp) {
-            case "make":
-            case "thing":
-            case "erase":
-            case "isname":
-            case "print":
-            case "readlist": case "read":
-            case "add": case "sub": case "mul": case "div": case "mod":
-            case "eq": case "gt": case "lt":
-            case "and": case "or": case "not":
-            case "repeat": case "output": case "stop":
-                return false;
-            default:
-                return true;
+    //将本地make的值输出到全局
+    private static boolean cmdExport(){
+        if(!isInFunction) {
+            PrintInfo.printRuntimeError("当前不在函数中");
+            return false;
         }
-    }
-
-    //检测变量名开头是否符合规范，即必须以字母或者下划线开头
-    private static boolean testFirstChar(String temp){
-        return (Character.isLetter(temp.charAt(0))||temp.charAt(0)=='_');
-    }
-
-    //比较运算符eq,gt,lt执行结果的统一返回函数，即统一进行返回，避免单个命令判断返回的重复
-    private static boolean flagJudge(int flag,String command){
-        if(flag<0)
-            switch (command){
-                case "eq":
-                    return false;
-                case "gt":
-                    return false;
-                case "lt":
-                    return true;
-                default:
-                    return true;
-            }
-
-        else if(flag==0)
-            switch(command){
-                case "eq":
-                    return true;
-                case "gt":
-                    return false;
-                case "lt":
-                    return false;
-                default:
-                    return true;
-            }
-        else
-            switch (command){
-                case "eq":
-                    return false;
-                case "gt":
-                    return true;
-                case "lt":
-                    return false;
-                default:
-                    return true;
-            }
-    }
-
-    //判断list的左右括号个数是否匹配
-    private static boolean isBracketsPatch(String temp,String typeLeft){
-        String typeRight;
-        if(typeLeft.equals("["))
-            typeRight="]";
-        else
-            typeRight=")";
-
-        int countLeft=0;
-        int countRight=0;
-        String[] tempArray=temp.split("\\s+");
-        for(int i=0;i<tempArray.length;i++)
-            if(tempArray[i].equals(typeLeft))
-                countLeft++;
-            else if(tempArray[i].equals(typeRight))
-                countRight++;
-            else
-                continue;
-
-        return countLeft==countRight;
-    }
-
-    //[]的预格式化函数，预格式化后[和]的左右都有空格（头尾非全部有）
-    //typeLeft 为"(", 或者"["
-    private static String preformatBracket(String temp,String typeLeft){
-        String typeRight;
-        if(typeLeft.equals("("))
-            typeRight=")";
-        else
-            typeRight="]";
-        String[] tempArray=temp.split("\\s+");
-        List<String> tempList=Arrays.asList(tempArray);
-        tempList=new ArrayList<String>(tempList);
-
-        for(int i=0;i<tempList.size();i++){
-            String tempString=tempList.get(i);
-            if(tempString.startsWith(typeLeft)&&tempString.length()!=1){
-                tempList.set(i,tempString.substring(1));
-                tempList.add(i,typeLeft);
-            }
-            else
-                //Note:word 不能包含[]等，需要的话需加\转义
-                if(tempString.endsWith(typeRight)&&tempString.length()!=1)
-                    if(!tempString.startsWith("\"")||(tempString.startsWith("\"")&&!tempString.endsWith("\\"+typeRight))){
-                        tempList.set(i, tempString.substring(0, tempString.length() - 1));
-                        tempList.add(i + 1, typeRight);
-                        i--;
-                    }
+        Iterator iter=childNameSpace.entrySet().iterator();
+        //遍历局部变量并放到全局变量中，若有同名变量则以局部变量为准
+        while(iter.hasNext()){
+          Map.Entry entry = (Map.Entry) iter.next();
+          nameSpace.put(entry.getKey().toString(),entry.getValue().toString());
         }
-        temp="";
-        for(int i=0;i<tempList.size();i++)
-            temp+=tempList.get(i)+" ";
-        return temp.trim();
+
+        return true;
     }
 
     //检测是否是一个合法的变量名，不能是保留字，不能为空，不能以非数字和下划线开头，不能不是单词
@@ -883,52 +1024,16 @@ public class Mua {
             PrintInfo.printSyntaxError("name can't be empty");
             return false;
         }
-        else if(!testLegal(temp.substring(1))){
+        else if(!Commands.testLegal(temp.substring(1))){
             PrintInfo.printSyntaxError("name can't be reserved word");
             return false;
         }
-        else if(!testFirstChar(temp.substring(1))){
+        else if(!Commands.testFirstChar(temp.substring(1))){
             PrintInfo.printSyntaxError("name must start with letter or _");
             return false;
         }
         else
             return true;
-    }
-
-    //传入整行命令，返回将其分隔后的数组，同时将整句[]转化为一个String
-    public static String[] bracketToString(String[] allCommands){
-        int i,j;
-        ArrayList<String>  tempAllCommands=new ArrayList<>();
-        for(i=0;i<allCommands.length;i++) {
-            if(allCommands[i].equals("[")){
-                int countLeft=0;
-                for(j=i;j<allCommands.length;j++){
-                    if(allCommands[j].equals("["))
-                        countLeft++;
-                    else if(allCommands[j].equals("]")) {
-                        if (countLeft != 0) {
-                            if(--countLeft==0)
-                                break;
-                        }
-                        else
-                            break;
-                    }
-                    else
-                        continue;
-                }
-                String temp="";
-                if(j==allCommands.length)   //防止[]的情况，此时]匹配会越界
-                    j-=1;
-                for(int k=i;k<=j;k++)
-                    temp+=allCommands[k]+" ";
-                tempAllCommands.add(temp.trim());
-                i=j;
-            }
-            else
-                tempAllCommands.add(allCommands[i]);
-        }
-
-        return tempAllCommands.toArray(new String[tempAllCommands.size()]);
     }
 
     //命令辅助执行函数，用于在命令执行中判断参数个数和调用递归
@@ -939,7 +1044,7 @@ public class Mua {
                 return false;
             }
             String tempString=allCommands.get(i+j);
-            if(!testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString))
+            if(!Commands.testLegal(tempString)||tempString.startsWith(":")||ComputeExpression.isOperator(tempString)||isAFunction(tempString))
                 if(!executeCommands(allCommands,i+j))
                     return false;
                 else

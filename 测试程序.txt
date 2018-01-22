@@ -1,0 +1,138 @@
+//通过
+make "sqrt_iter [[guess x] [
+	if lt abs (:guess*:guess-:x) 0.001
+		[output :guess]
+		[output sqrt_iter ((:guess+:x/:guess)/2) :x] 
+]]
+print sqrt_iter 1 2
+
+
+
+//通过
+make "factorial [[n] [
+	if lt :n 2
+		[output 1]
+		[output (:n*factorial (:n-1))]
+]]
+
+
+//通过
+make "average [[a b] [
+	output ((:a+:b)/2)
+]]
+make "sqrt2 [[x][
+	make "good_enough [[guess x][
+		output lt abs (:guess*:guess-:x) 0.001
+	]]
+	make "improve [[guess x][
+		output average :guess :x/:guess
+	]]
+	make "sqrt_iter [[guess x][
+		if good_enough :guess :x
+			[output :guess]
+			[output sqrt_iter improve :guess :x :x]
+	]]
+	output sqrt_iter 1.0 :x
+]]
+
+
+
+//通过
+make "factorial_iter [[productor counter n][
+	if gt :counter :n
+		[output :productor]
+		[output factorial_iter
+			(:productor*:counter)
+			(:counter+1)
+			:n
+		]
+]]
+
+
+//通过
+make "fib [[n] [
+	if lt :n 2
+		[output 1]
+		[output (fib (:n-1)+fib (:n-2))]
+]]
+
+
+//通过
+make "fib_iter [[a b counter][
+	if eq :counter 0
+		[output :b]
+		[output fib_iter (:a+:b) :a (:counter-1)]
+]]
+
+
+//通过
+make "exp [[b n][
+	if lt :n 1
+		[output 1]
+		[output (:b*exp :b (:n-1))]
+]]
+
+
+//通过
+make "even? [[x][
+	if eq (:x%2) 0
+		[output "true]
+		[output "false]
+]]
+//通过
+make "square [[x][
+	output (:x*:x)
+]]
+//通过
+make "fast_exp [[b n][
+	if eq :n 0
+		[output 1]
+		[if even? :n
+			[output square fast_exp :b (:n/2)]
+			[output (:b*fast_exp :b (:n-1))]
+		]
+]]
+
+
+
+//通过
+make "sum [[term a next b][
+	if gt :a :b
+		[output 0]
+		[output (term :a+sum :term next :a :next :b)]
+]]
+make "pi_sum_term [[a][
+	output (1.0/(:a*(:a+2)))
+]]
+make "pi_sum_next [[a][
+	output (:a+4)
+]]
+print sum :pi_sum_term 1.0 :pi_sum_next 100
+
+
+
+//修改过，以下全部通过
+make "average [[a b][
+	output ((:a+:b)/2)
+]]
+make "close_enough? [[left right][
+	output lt (:right-:left) 0.001
+]]
+make "bs_root [[f left right][
+	make "mid average :left :right
+	if close_enough? :left :right
+		[output :mid]
+		[
+			make "test_value f :mid
+			if gt :test_value 0
+				[output bs_root :f :left :mid]
+				[
+					if lt :test_value 0
+						[output bs_root :f :mid :right]
+						[output :mid]
+				]
+		]
+]]
+make "test_function [[a][output (:a+5)]]
+print bs_root :test_function -10 5
+

@@ -1,9 +1,6 @@
 package MUA;
 
-import javax.xml.bind.ValidationEvent;
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
-import java.time.temporal.ValueRange;
 import java.util.*;
 
 import static java.math.BigDecimal.ROUND_HALF_UP;
@@ -11,19 +8,11 @@ import static java.math.BigDecimal.ROUND_HALF_UP;
 public class ComputeExpression {
     private static int scale=16;
 
-//    public static void main(String[] args) {
-//        Scanner input=new Scanner(System.in);
-//        String expression=input.next();
-//        try{
-//            System.out.println(calculate(expression));
-//        }catch (Exception ex){
-//            System.out.println("Illegal Expression: "+ex.getMessage());
-//        }
-//    }
-
     private static HashMap<String,Integer> opPrior=new HashMap<>();
 
+    //主函数，接受一个表达式，返回表达式的运算结果
     public static String calculate(String expression) throws Exception{
+        //预格式化
         expression=preFormate(expression);
         Stack<String> postfix=new Stack<>();
         Stack<String> result=new Stack<>();
@@ -144,7 +133,7 @@ public class ComputeExpression {
 
     //判断是不是运算符或者括号
     public static boolean isOperator(String myStr){
-        return (myStr.equals("+")||myStr.equals("-")||myStr.equals("*")||myStr.equals("/")||myStr.equals("%")||myStr.equals("(")||myStr.equals(")"));
+        return (myStr.equals("+")||myStr.equals("-")||myStr.equals("*")||myStr.equals("/")||myStr.equals("%")||myStr.equals("(")||myStr.equals(")")||myStr.equals("^"));
     }
 
     //判断栈底元素与当前元素的优先级，如果当前元素高则true
@@ -162,9 +151,15 @@ public class ComputeExpression {
         opPrior.put("*",3);
         opPrior.put("/",3);
         opPrior.put("%",3);
+        opPrior.put("^",4);
     }
 
+    //计算执行函数
     public static String compute(String value1, String value2, String operator) throws Exception{
+        //格式化数字，支持形如0.99写成.99的操作
+        value1=NumSupport.clearZero(value1);
+        value2=NumSupport.clearZero(value2);
+
         BigDecimal v1=new BigDecimal(value1);
         BigDecimal v2=new BigDecimal(value2);
         if(operator.equals("+"))
@@ -173,10 +168,12 @@ public class ComputeExpression {
             return v1.subtract(v2).toString();
         else if(operator.equals("*"))
             return v1.multiply(v2).toString();
-        else if(operator.equals("/")) {
+        else if(operator.equals("/"))
             return v1.divide(v2, scale, ROUND_HALF_UP).toString();
-        } else if(operator.equals("%"))
+        else if(operator.equals("%"))
             return v1.divideAndRemainder(v2)[1].toString();
+        else if(operator.equals("^"))
+            return v1.pow(v2.intValue()).toString();//Note: v2 may larger than int max
         else
             throw new Exception("one num is invalid");
     }
@@ -218,62 +215,6 @@ public class ComputeExpression {
         for(String temp:allWords)
             allExpressions.add(temp);
 
-//        //先处理运算符分隔的情况
-//        for(int i=0;i<allExpressions.size();i++){
-//            if(hasOp(allExpressions.get(i))){
-//                String temp=allExpressions.get(i);
-//                if(temp.equals("+")||temp.equals("-")||temp.equals("*")||temp.equals("/")||temp.equals("%")) {
-//                    if (i == 0) {
-//                        if (allExpressions.size() > 1&&canAppend(allExpressions.get(i+1))) {
-//                            allExpressions.set(i, allExpressions.get(i) + allExpressions.get(i + 1));
-//                            allExpressions.remove(i+1);
-//                            i--;
-//                        }
-//                    }
-//                    else{
-//                        if(allExpressions.size()!=i+1) {
-//                            if(canAppend(allExpressions.get(i-1))){
-//                                allExpressions.set(i-1,allExpressions.get(i-1)+allExpressions.get(i));
-//                                allExpressions.remove(i);
-//                                i--;
-//                            }
-//                            if(canAppend(allExpressions.get(i+1))){
-//                                allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
-//                                allExpressions.remove(i);
-//                                i--;
-//                            }
-//                        }
-//                        else{
-//                            if(canAppend(allExpressions.get(i-1))) {
-//                                allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
-//                                allExpressions.remove(i);
-//                                i -= 2;
-//                            }
-//                        }
-//                    }
-//                }
-//                else if(temp.startsWith("+")||temp.startsWith("-")||temp.startsWith("*")||temp.startsWith("/")||temp.startsWith("%")){
-//                    if(i!=0)
-//                        if(canAppend(allExpressions.get(i-1))) {
-//                            allExpressions.set(i - 1, allExpressions.get(i - 1) + allExpressions.get(i));
-//                            allExpressions.remove(i);
-//                            i -= 2;
-//                        }
-//                }
-//                else if(temp.endsWith("+")||temp.endsWith("-")||temp.endsWith("*")||temp.endsWith("/")||temp.endsWith("%")){
-//                    if(temp.charAt(temp.length()-2)!='\\'){
-//                        if(allExpressions.size()!=i+1){
-//                            if(canAppend(allExpressions.get(i+1))) {
-//                                allExpressions.set(i, allExpressions.get(i) + allExpressions.get(i + 1));
-//                                allExpressions.remove(i + 1);
-//                                i--;
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-
         allExpressions=combineBbrackets(allExpressions);
 
         //给表达式添加括号，其中不对以运算符开头的String加括号，防止分割运算符（同时也是为了支持括号内任意加空格）
@@ -281,11 +222,11 @@ public class ComputeExpression {
             String tempStr=allExpressions.get(i);
             String first=tempStr.substring(0,1);
             String last=tempStr.substring(tempStr.length()-1,tempStr.length());
-            if(hasOp(tempStr)&&!tempStr.equals("(")&&!tempStr.equals(")")) {
+
+            if(hasOp(tempStr)&&!tempStr.equals("(")&&!tempStr.equals(")"))
                 if(!isOperator(first)||first.equals("("))
                     if(!isOperator(last)||last.equals(")"))
                         allExpressions.set(i, "( " + allExpressions.get(i) + " )");
-            }
         }
 
 
@@ -333,6 +274,8 @@ public class ComputeExpression {
             return true;
         else if(expression.indexOf(")")!=-1)
             return true;
+        else if(expression.indexOf("^")!=-1)
+            return true;
         else
             return false;
     }
@@ -364,6 +307,7 @@ public class ComputeExpression {
         return allCommands;
     }
 
+    //计算command中变量含有的变量char type的数
     public static int countBrackets(String command,char type){
         int count=0;
         for(int i=0;i<command.length();i++)
